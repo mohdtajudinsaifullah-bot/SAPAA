@@ -21,7 +21,7 @@ export default function DashboardPage() {
   const [profil, setProfil] = useState({
     nama: '',
     noTel: '',
-    hierarki: 'MRS', // MRS / MTS
+    hierarki: 'MRS',
     negeri: 'Selangor',
     daerah: 'Petaling'
   });
@@ -30,13 +30,14 @@ export default function DashboardPage() {
   const [soalanList, setSoalanList] = useState<Soalan[]>([]);
   const [jawapan, setJawapan] = useState<Record<string, string>>({});
   const [submissions, setSubmissions] = useState<any[]>([]);
-  const [editingId, setEditingId] = useState<string | null>(null);
   
   // Admin Form State
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [newQ, setNewQ] = useState({ text: '', kategori: 'MRS', jenis: 'Objektif', pilihan: 'Ya,Tidak,Sebahagian', markahMax: 10 });
 
   // Oditer State
   const [selectedSub, setSelectedSub] = useState<any | null>(null);
+  const [oditerSoalanList, setOditerSoalanList] = useState<Soalan[]>([]);
   const [markahInput, setMarkahInput] = useState<Record<string, number>>({});
   const [ulasanOditer, setUlasanOditer] = useState('');
 
@@ -73,23 +74,24 @@ export default function DashboardPage() {
 
       setSettings(dataSet);
 
+      let currentRole = 'Oditee';
       if (dataProf) {
-        if (dataProf.nama) {
-          setProfil(prev => ({ ...prev, ...dataProf }));
-        }
-        // PADANKAN ROLE DARI GOOGLE SHEET (ADMIN / ODITER / ODITEE)
+        if (dataProf.nama) setProfil(prev => ({ ...prev, ...dataProf }));
         if (dataProf.role) {
+          currentRole = dataProf.role;
           setRole(dataProf.role as any);
         }
       }
 
-      // Ambil Soalan mengikut Hierarki Oditee (MRS/MTS)
-      const resQ = await fetch(`${gasUrl}?action=getSoalan&kategori=${dataProf?.hierarki || 'MRS'}`);
+      // Jika Admin / Oditer: Tarik SEMUA soalan (tanpa filter kategori)
+      // Jika Oditee: Tarik soalan ikut hierarki profil (MRS/MTS)
+      const qCategoryParam = (currentRole === 'Admin' || currentRole === 'Oditer') ? '' : (dataProf?.hierarki || 'MRS');
+      const resQ = await fetch(`${gasUrl}?action=getSoalan&kategori=${qCategoryParam}`);
       const dataQ = await resQ.json();
       setSoalanList(Array.isArray(dataQ) ? dataQ : []);
 
-      // Jika Admin / Oditer, load semua submisyen
-      if (dataProf?.role === 'Admin' || dataProf?.role === 'Oditer') {
+      // Load Submisyen jika Admin / Oditer
+      if (currentRole === 'Admin' || currentRole === 'Oditer') {
         const resSub = await fetch(`${gasUrl}?action=getAllSubmissions`);
         const dataSub = await resSub.json();
         setSubmissions(Array.isArray(dataSub) ? dataSub : []);
@@ -106,22 +108,35 @@ export default function DashboardPage() {
     if (isLoaded) loadAllData();
   }, [isLoaded, user]);
 
-  // Simpan / Kemaskini Profil Oditee
+  // Bila Oditer pilih daerah, muatkan soalan khas mengikut Hierarki daerah tersebut (MRS/MTS)
+  const handleSelectSubmisyenForAudit = async (sub: any) => {
+    setSelectedSub(sub);
+    setMarkahInput(sub.penilaian?.markahJSON || {});
+    setUlasanOditer(sub.penilaian?.ulasan || '');
+
+    try {
+      // Ambil soalan khusus mengikut Hierarki penyerahan (MRS atau MTS)
+      const resQ = await fetch(`${gasUrl}?action=getSoalan&kategori=${sub.hierarki || 'MRS'}`);
+      const dataQ = await resQ.json();
+      setOditerSoalanList(Array.isArray(dataQ) ? dataQ : []);
+    } catch (e) {
+      console.error('Ralat mengambil soalan untuk penilaian:', e);
+    }
+  };
+
+  // Simpan Profil Oditee
   const handleSaveProfil = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
     setStatusMsg(null);
 
     try {
-      const emailUser = user?.primaryEmailAddress?.emailAddress;
-
-      // Elak CORS Error dengan Content-Type text/plain
       await fetch(gasUrl!, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({
           action: 'updateProfil',
-          email: emailUser,
+          email: user?.primaryEmailAddress?.emailAddress,
           nama: profil.nama,
           noTel: profil.noTel,
           hierarki: profil.hierarki,
@@ -131,10 +146,9 @@ export default function DashboardPage() {
       });
 
       setStatusMsg({ type: 'success', text: 'Profil berjaya dikemaskini!' });
-      loadAllData(); // Reload data & role
+      loadAllData();
     } catch (e) {
-      console.error(e);
-      setStatusMsg({ type: 'error', text: 'Gagal mengemaskini profil. Sila semak sambungan.' });
+      setStatusMsg({ type: 'error', text: 'Gagal mengemaskini profil.' });
     } finally {
       setSubmitting(false);
     }
@@ -220,9 +234,8 @@ export default function DashboardPage() {
     if (!selectedSub) return;
     setSubmitting(true);
     
-    // Kira Jumlah Markah
     const totalMark = Object.values(markahInput).reduce((a, b) => Number(a) + Number(b), 0);
-    const maxMark = soalanList.reduce((a, b) => a + Number(b.markahMax), 0);
+    const maxMark = oditerSoalanList.reduce((a, b) => a + Number(b.markahMax), 0);
 
     try {
       await fetch(gasUrl!, {
@@ -248,7 +261,6 @@ export default function DashboardPage() {
     }
   };
 
-  // Function Print PDF
   const handlePrint = () => {
     window.print();
   };
@@ -402,58 +414,62 @@ export default function DashboardPage() {
               </form>
             </div>
 
-            {/* SENARAI SOALAN YANG DAH DITAMBAH */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden space-y-3 p-6">
+            {/* SENARAI SOALAN DALAM SISTEM */}
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm space-y-3 p-6">
               <h3 className="text-md font-bold text-slate-900 border-b pb-3">Senarai Soalan Dalam Sistem</h3>
-              <div className="space-y-3">
-                {soalanList.map((q, idx) => (
-                  <div key={q.id || idx} className="p-4 rounded-lg bg-slate-50 border flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-sm text-slate-900">{idx + 1}. {q.text}</span>
-                        <span className="text-[10px] bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-bold">{q.kategori}</span>
-                        <span className="text-[10px] bg-slate-200 text-slate-700 px-2 py-0.5 rounded font-semibold">{q.jenis}</span>
+              {soalanList.length === 0 ? (
+                <p className="text-slate-500 text-xs py-2">Tiada soalan ditemui.</p>
+              ) : (
+                <div className="space-y-3">
+                  {soalanList.map((q, idx) => (
+                    <div key={q.id || idx} className="p-4 rounded-lg bg-slate-50 border flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-sm text-slate-900">{idx + 1}. {q.text}</span>
+                          <span className="text-[10px] bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-bold">{q.kategori}</span>
+                          <span className="text-[10px] bg-slate-200 text-slate-700 px-2 py-0.5 rounded font-semibold">{q.jenis}</span>
+                        </div>
+                        {q.jenis === 'Objektif' && (
+                          <p className="text-xs text-slate-500">Pilihan: {q.pilihan.join(', ')}</p>
+                        )}
                       </div>
-                      {q.jenis === 'Objektif' && (
-                        <p className="text-xs text-slate-500">Pilihan: {q.pilihan.join(', ')}</p>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 text-xs">
-                      <span className="font-bold text-slate-700 bg-white border px-2 py-1 rounded">Max: {q.markahMax}m</span>
-                      <button
-                        onClick={() => {
-                          setEditingId(q.id);
-                          setNewQ({
-                            text: q.text,
-                            kategori: q.kategori,
-                            jenis: q.jenis,
-                            pilihan: q.pilihan.join(','),
-                            markahMax: q.markahMax
-                          });
-                        }}
-                        className="px-3 py-1 bg-amber-500 text-white rounded font-medium hover:bg-amber-600"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={async () => {
-                          if (confirm('Adakah anda pasti nak padam soalan ini?')) {
-                            await fetch(gasUrl!, {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                              body: JSON.stringify({ action: 'deleteSoalan', id: q.id })
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="font-bold text-slate-700 bg-white border px-2 py-1 rounded">Max: {q.markahMax}m</span>
+                        <button
+                          onClick={() => {
+                            setEditingId(q.id);
+                            setNewQ({
+                              text: q.text,
+                              kategori: q.kategori,
+                              jenis: q.jenis,
+                              pilihan: q.pilihan.join(','),
+                              markahMax: q.markahMax
                             });
-                            loadAllData();
-                          }
-                        }}
-                        className="px-3 py-1 bg-rose-600 text-white rounded font-medium hover:bg-rose-700"
-                      >
-                        Padam
-                      </button>
+                          }}
+                          className="px-3 py-1 bg-amber-500 text-white rounded font-medium hover:bg-amber-600"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={async () => {
+                            if (confirm('Adakah anda pasti nak padam soalan ini?')) {
+                              await fetch(gasUrl!, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                                body: JSON.stringify({ action: 'deleteSoalan', id: q.id })
+                              });
+                              loadAllData();
+                            }
+                          }}
+                          className="px-3 py-1 bg-rose-600 text-white rounded font-medium hover:bg-rose-700"
+                        >
+                          Padam
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Dashboard Keseluruhan Jawapan & Markah */}
@@ -691,34 +707,34 @@ export default function DashboardPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {submissions.map((sub, idx) => (
-                      <tr key={idx} className="hover:bg-slate-50">
-                        <td className="p-3 font-semibold text-slate-900">{sub.daerah}, {sub.negeri}</td>
-                        <td className="p-3"><span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded font-bold">{sub.hierarki}</span></td>
-                        <td className="p-3">{sub.nama}</td>
-                        <td className="p-3 font-bold">
-                          {sub.penilaian ? `${sub.penilaian.jumlahMarkah} / ${sub.penilaian.markahMax}` : 'Belum Dinilai'}
-                        </td>
-                        <td className="p-3">
-                          <button
-                            onClick={() => {
-                              setSelectedSub(sub);
-                              setMarkahInput(sub.penilaian?.markahJSON || {});
-                              setUlasanOditer(sub.penilaian?.ulasan || '');
-                            }}
-                            className="px-3 py-1 bg-blue-600 text-white rounded text-xs font-medium hover:bg-blue-700"
-                          >
-                            Semak & Beri Markah
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                    {submissions.length === 0 ? (
+                      <tr><td colSpan={5} className="p-6 text-center text-slate-500">Tiada penyerahan jawapan daerah lagi.</td></tr>
+                    ) : (
+                      submissions.map((sub, idx) => (
+                        <tr key={idx} className="hover:bg-slate-50">
+                          <td className="p-3 font-semibold text-slate-900">{sub.daerah}, {sub.negeri}</td>
+                          <td className="p-3"><span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded font-bold">{sub.hierarki}</span></td>
+                          <td className="p-3">{sub.nama}</td>
+                          <td className="p-3 font-bold">
+                            {sub.penilaian ? `${sub.penilaian.jumlahMarkah} / ${sub.penilaian.markahMax}` : 'Belum Dinilai'}
+                          </td>
+                          <td className="p-3">
+                            <button
+                              onClick={() => handleSelectSubmisyenForAudit(sub)}
+                              className="px-3 py-1 bg-blue-600 text-white rounded text-xs font-medium hover:bg-blue-700"
+                            >
+                              Semak & Beri Markah
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
             </div>
 
-            {/* Modal / Panel Semakan Markah */}
+            {/* Panel Semakan Markah Oditer */}
             {selectedSub && (
               <div className="bg-white rounded-xl border-2 border-blue-500 p-6 shadow-xl space-y-6">
                 <div className="flex justify-between items-center border-b pb-4">
@@ -731,27 +747,39 @@ export default function DashboardPage() {
                   </button>
                 </div>
 
+                {/* Senarai Soalan & Jawapan Oditee + Ruang Markah Oditer */}
                 <div className="space-y-4">
-                  {soalanList.map((q, idx) => (
-                    <div key={q.id} className="p-4 bg-slate-50 rounded-lg border text-xs space-y-2">
-                      <div className="font-semibold text-slate-900">{idx + 1}. {q.text}</div>
-                      <div className="p-2.5 bg-white border rounded text-slate-800">
-                        <span className="font-semibold text-slate-500">Jawapan Oditee: </span>
-                        {selectedSub.jawapanJSON[q.id] || <span className="italic text-slate-400">Tiada Jawapan</span>}
-                      </div>
-                      <div className="flex items-center gap-3 pt-1">
-                        <label className="font-semibold text-slate-700">Markah Oditer (Max: {q.markahMax}):</label>
-                        <input
-                          type="number"
-                          max={q.markahMax}
-                          min={0}
-                          value={markahInput[q.id] ?? 0}
-                          onChange={(e) => setMarkahInput({ ...markahInput, [q.id]: Number(e.target.value) })}
-                          className="w-20 p-1.5 border rounded text-center font-bold bg-white"
-                        />
-                      </div>
+                  {oditerSoalanList.length === 0 ? (
+                    <div className="p-4 bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-lg">
+                      Sedang memuatkan soalan atau tiada soalan bagi kategori {selectedSub.hierarki}...
                     </div>
-                  ))}
+                  ) : (
+                    oditerSoalanList.map((q, idx) => (
+                      <div key={q.id || idx} className="p-4 bg-slate-50 rounded-lg border text-xs space-y-3">
+                        <div className="font-semibold text-slate-900 text-sm flex justify-between">
+                          <span>{idx + 1}. {q.text}</span>
+                          <span className="text-xs text-blue-700 bg-blue-50 px-2 py-0.5 rounded font-bold">Max: {q.markahMax}m</span>
+                        </div>
+                        <div className="p-3 bg-white border border-slate-200 rounded text-slate-800">
+                          <span className="font-bold text-slate-500 block mb-1">Jawapan Dihantar Oditee:</span>
+                          <span className="font-semibold text-slate-900">
+                            {selectedSub.jawapanJSON && selectedSub.jawapanJSON[q.id] ? selectedSub.jawapanJSON[q.id] : <em className="text-slate-400 font-normal">Tiada Jawapan</em>}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3 pt-1">
+                          <label className="font-semibold text-slate-700">Markah Dinilai Oditer (0 - {q.markahMax}):</label>
+                          <input
+                            type="number"
+                            max={q.markahMax}
+                            min={0}
+                            value={markahInput[q.id] ?? 0}
+                            onChange={(e) => setMarkahInput({ ...markahInput, [q.id]: Number(e.target.value) })}
+                            className="w-24 p-2 border rounded text-center font-bold text-sm bg-white text-blue-700 focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                      </div>
+                    ))
+                  )}
 
                   <div className="pt-2">
                     <label className="font-semibold text-xs text-slate-700">Ulasan Keseluruhan Oditer</label>
@@ -767,11 +795,11 @@ export default function DashboardPage() {
 
                 <div className="flex justify-between items-center border-t pt-4">
                   <div className="text-sm font-bold text-slate-900">
-                    Jumlah Markah: <span className="text-blue-700">{Object.values(markahInput).reduce((a, b) => Number(a) + Number(b), 0)}</span> / {soalanList.reduce((a, b) => a + Number(b.markahMax), 0)}
+                    Jumlah Markah: <span className="text-blue-700 text-base">{Object.values(markahInput).reduce((a, b) => Number(a) + Number(b), 0)}</span> / {oditerSoalanList.reduce((a, b) => a + Number(b.markahMax), 0)}
                   </div>
                   <div className="flex gap-2">
-                    <button onClick={() => setSelectedSub(null)} className="px-4 py-2 bg-slate-200 rounded text-xs font-semibold text-slate-700">Batal</button>
-                    <button onClick={handleSavePenilaian} disabled={submitting} className="px-5 py-2 bg-emerald-600 text-white rounded text-xs font-semibold hover:bg-emerald-700">
+                    <button onClick={() => setSelectedSub(null)} className="px-4 py-2 bg-slate-200 rounded text-xs font-semibold text-slate-700 hover:bg-slate-300">Batal</button>
+                    <button onClick={handleSavePenilaian} disabled={submitting} className="px-5 py-2 bg-emerald-600 text-white rounded text-xs font-semibold hover:bg-emerald-700 shadow-sm">
                       {submitting ? 'Menyimpan...' : 'Simpan Penilaian'}
                     </button>
                   </div>
