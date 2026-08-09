@@ -45,16 +45,13 @@ export default function DashboardPage() {
 
   const gasUrl = process.env.NEXT_PUBLIC_GAS_URL;
 
-  // Set Auto-Fill Nama dari Clerk
+  // Auto-Fill Nama & Emel dari Clerk
   useEffect(() => {
     if (user) {
       setProfil(prev => ({
         ...prev,
         nama: prev.nama || user.fullName || user.username || ''
       }));
-      // Mengambil role dari Clerk Metadata jika ada
-      const r = (user.publicMetadata?.role as any) || 'Oditee';
-      setRole(r);
     }
   }, [user]);
 
@@ -74,15 +71,24 @@ export default function DashboardPage() {
       const dataProf = await resProf.json();
 
       setSettings(dataSet);
-      if (dataProf.nama) setProfil(prev => ({ ...prev, ...dataProf }));
+
+      if (dataProf) {
+        if (dataProf.nama) {
+          setProfil(prev => ({ ...prev, ...dataProf }));
+        }
+        // PADANKAN ROLE DARI GOOGLE SHEET (ADMIN / ODITER / ODITEE)
+        if (dataProf.role) {
+          setRole(dataProf.role as any);
+        }
+      }
 
       // Ambil Soalan mengikut Hierarki Oditee (MRS/MTS)
-      const resQ = await fetch(`${gasUrl}?action=getSoalan&kategori=${dataProf.hierarki || 'MRS'}`);
+      const resQ = await fetch(`${gasUrl}?action=getSoalan&kategori=${dataProf?.hierarki || 'MRS'}`);
       const dataQ = await resQ.json();
       setSoalanList(Array.isArray(dataQ) ? dataQ : []);
 
       // Jika Admin / Oditer, load semua submisyen
-      if (role === 'Admin' || role === 'Oditer') {
+      if (dataProf?.role === 'Admin' || dataProf?.role === 'Oditer') {
         const resSub = await fetch(`${gasUrl}?action=getAllSubmissions`);
         const dataSub = await resSub.json();
         setSubmissions(Array.isArray(dataSub) ? dataSub : []);
@@ -97,27 +103,37 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (isLoaded) loadAllData();
-  }, [isLoaded, user, role]);
+  }, [isLoaded, user]);
 
   // Simpan / Kemaskini Profil Oditee
   const handleSaveProfil = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
+    setStatusMsg(null);
+
     try {
-      const res = await fetch(gasUrl!, {
+      const emailUser = user?.primaryEmailAddress?.emailAddress;
+
+      // Elak CORS Error dengan Content-Type text/plain
+      await fetch(gasUrl!, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({
           action: 'updateProfil',
-          email: user?.primaryEmailAddress?.emailAddress,
-          ...profil
+          email: emailUser,
+          nama: profil.nama,
+          noTel: profil.noTel,
+          hierarki: profil.hierarki,
+          negeri: profil.negeri,
+          daerah: profil.daerah
         })
       });
-      const data = await res.json();
-      setStatusMsg({ type: 'success', text: data.message });
-      loadAllData(); // Reload soalan ikut hierarki baru
+
+      setStatusMsg({ type: 'success', text: 'Profil berjaya dikemaskini!' });
+      loadAllData(); // Reload data & role
     } catch (e) {
-      setStatusMsg({ type: 'error', text: 'Gagal mengemaskini profil.' });
+      console.error(e);
+      setStatusMsg({ type: 'error', text: 'Gagal mengemaskini profil. Sila semak sambungan.' });
     } finally {
       setSubmitting(false);
     }
@@ -131,10 +147,12 @@ export default function DashboardPage() {
       return;
     }
     setSubmitting(true);
+    setStatusMsg(null);
+
     try {
-      const res = await fetch(gasUrl!, {
+      await fetch(gasUrl!, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({
           action: 'submitJawapan',
           email: user?.primaryEmailAddress?.emailAddress,
@@ -145,8 +163,8 @@ export default function DashboardPage() {
           jawapan: jawapan
         })
       });
-      const data = await res.json();
-      setStatusMsg({ type: data.success ? 'success' : 'error', text: data.message });
+
+      setStatusMsg({ type: 'success', text: 'Jawapan berjaya disimpan!' });
     } catch (e) {
       setStatusMsg({ type: 'error', text: 'Ralat menyimpan jawapan.' });
     } finally {
@@ -160,7 +178,7 @@ export default function DashboardPage() {
     try {
       await fetch(gasUrl!, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({ action: 'toggleStatus', statusPenyertaan: nextStatus })
       });
       setSettings(prev => ({ ...prev, statusPenyertaan: nextStatus }));
@@ -175,17 +193,16 @@ export default function DashboardPage() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      const res = await fetch(gasUrl!, {
+      await fetch(gasUrl!, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({
           action: 'addSoalan',
           ...newQ,
           pilihan: newQ.pilihan.split(',')
         })
       });
-      const data = await res.json();
-      setStatusMsg({ type: 'success', text: data.message });
+      setStatusMsg({ type: 'success', text: 'Soalan berjaya ditambah!' });
       setNewQ({ text: '', kategori: 'MRS', jenis: 'Objektif', pilihan: 'Ya,Tidak,Sebahagian', markahMax: 10 });
       loadAllData();
     } catch (e) {
@@ -205,9 +222,9 @@ export default function DashboardPage() {
     const maxMark = soalanList.reduce((a, b) => a + Number(b.markahMax), 0);
 
     try {
-      const res = await fetch(gasUrl!, {
+      await fetch(gasUrl!, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({
           action: 'savePenilaian',
           idJawapan: selectedSub.idJawapan,
@@ -218,8 +235,7 @@ export default function DashboardPage() {
           markahMax: maxMark
         })
       });
-      const data = await res.json();
-      setStatusMsg({ type: 'success', text: data.message });
+      setStatusMsg({ type: 'success', text: 'Markah berjaya disimpan!' });
       setSelectedSub(null);
       loadAllData();
     } catch (e) {
@@ -261,7 +277,6 @@ export default function DashboardPage() {
               </p>
             </div>
           </div>
-          {/* KOD RASMI (AUTO-DETECT SEMENTARA/PERMANENT) */}
           <div className="flex items-center gap-3">
             <span className="text-xs bg-slate-800 text-slate-300 px-3 py-1 rounded-full border border-slate-700 font-medium">
               Peranan: <strong className="text-blue-400">{role}</strong>
