@@ -261,17 +261,11 @@ export default function DashboardPage() {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-4">
-            {/* Quick Switch Role (For Testing) */}
-            <select
-              value={role}
-              onChange={(e) => setRole(e.target.value as any)}
-              className="bg-slate-800 text-xs text-slate-200 border border-slate-700 rounded px-2 py-1"
-            >
-              <option value="Oditee">Oditee View</option>
-              <option value="Oditer">Oditer View</option>
-              <option value="Admin">Admin View</option>
-            </select>
+          {/* KOD RASMI (AUTO-DETECT SEMENTARA/PERMANENT) */}
+          <div className="flex items-center gap-3">
+            <span className="text-xs bg-slate-800 text-slate-300 px-3 py-1 rounded-full border border-slate-700 font-medium">
+              Peranan: <strong className="text-blue-400">{role}</strong>
+            </span>
             <UserButton />
           </div>
         </div>
