@@ -30,6 +30,7 @@ export default function DashboardPage() {
   const [soalanList, setSoalanList] = useState<Soalan[]>([]);
   const [jawapan, setJawapan] = useState<Record<string, string>>({});
   const [submissions, setSubmissions] = useState<any[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
   
   // Admin Form State
   const [newQ, setNewQ] = useState({ text: '', kategori: 'MRS', jenis: 'Objektif', pilihan: 'Ya,Tidak,Sebahagian', markahMax: 10 });
@@ -188,7 +189,7 @@ export default function DashboardPage() {
     }
   };
 
-  // Admin: Tambah Soalan
+  // Admin: Tambah / Kemaskini Soalan
   const handleAddSoalan = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
@@ -197,16 +198,18 @@ export default function DashboardPage() {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({
-          action: 'addSoalan',
+          action: editingId ? 'updateSoalan' : 'addSoalan',
+          id: editingId,
           ...newQ,
           pilihan: newQ.pilihan.split(',')
         })
       });
-      setStatusMsg({ type: 'success', text: 'Soalan berjaya ditambah!' });
+      setStatusMsg({ type: 'success', text: editingId ? 'Soalan berjaya dikemaskini!' : 'Soalan berjaya ditambah!' });
+      setEditingId(null);
       setNewQ({ text: '', kategori: 'MRS', jenis: 'Objektif', pilihan: 'Ya,Tidak,Sebahagian', markahMax: 10 });
       loadAllData();
     } catch (e) {
-      setStatusMsg({ type: 'error', text: 'Gagal menambah soalan.' });
+      setStatusMsg({ type: 'error', text: 'Gagal memproses soalan.' });
     } finally {
       setSubmitting(false);
     }
@@ -318,10 +321,10 @@ export default function DashboardPage() {
               </button>
             </div>
 
-            {/* Borang Bina Soalan */}
+            {/* Borang Bina / Kemaskini Soalan */}
             <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
               <h2 className="text-md font-bold text-slate-900 flex items-center gap-2">
-                <PlusCircle className="w-5 h-5 text-blue-600" /> Tambah Soalan Baharu
+                <PlusCircle className="w-5 h-5 text-blue-600" /> {editingId ? 'Kemaskini Soalan' : 'Tambah Soalan Baharu'}
               </h2>
               <form onSubmit={handleAddSoalan} className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="md:col-span-3">
@@ -379,12 +382,78 @@ export default function DashboardPage() {
                     />
                   </div>
                 )}
-                <div className="md:col-span-3 flex justify-end">
+                <div className="md:col-span-3 flex justify-end gap-2">
+                  {editingId && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingId(null);
+                        setNewQ({ text: '', kategori: 'MRS', jenis: 'Objektif', pilihan: 'Ya,Tidak,Sebahagian', markahMax: 10 });
+                      }}
+                      className="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-300"
+                    >
+                      Batal
+                    </button>
+                  )}
                   <button type="submit" disabled={submitting} className="px-5 py-2 bg-blue-700 text-white rounded-lg text-sm font-medium hover:bg-blue-800">
-                    {submitting ? 'Menyimpan...' : 'Tambah Soalan'}
+                    {submitting ? 'Menyimpan...' : editingId ? 'Kemaskini Soalan' : 'Tambah Soalan'}
                   </button>
                 </div>
               </form>
+            </div>
+
+            {/* SENARAI SOALAN YANG DAH DITAMBAH */}
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden space-y-3 p-6">
+              <h3 className="text-md font-bold text-slate-900 border-b pb-3">Senarai Soalan Dalam Sistem</h3>
+              <div className="space-y-3">
+                {soalanList.map((q, idx) => (
+                  <div key={q.id || idx} className="p-4 rounded-lg bg-slate-50 border flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-sm text-slate-900">{idx + 1}. {q.text}</span>
+                        <span className="text-[10px] bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-bold">{q.kategori}</span>
+                        <span className="text-[10px] bg-slate-200 text-slate-700 px-2 py-0.5 rounded font-semibold">{q.jenis}</span>
+                      </div>
+                      {q.jenis === 'Objektif' && (
+                        <p className="text-xs text-slate-500">Pilihan: {q.pilihan.join(', ')}</p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="font-bold text-slate-700 bg-white border px-2 py-1 rounded">Max: {q.markahMax}m</span>
+                      <button
+                        onClick={() => {
+                          setEditingId(q.id);
+                          setNewQ({
+                            text: q.text,
+                            kategori: q.kategori,
+                            jenis: q.jenis,
+                            pilihan: q.pilihan.join(','),
+                            markahMax: q.markahMax
+                          });
+                        }}
+                        className="px-3 py-1 bg-amber-500 text-white rounded font-medium hover:bg-amber-600"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={async () => {
+                          if (confirm('Adakah anda pasti nak padam soalan ini?')) {
+                            await fetch(gasUrl!, {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                              body: JSON.stringify({ action: 'deleteSoalan', id: q.id })
+                            });
+                            loadAllData();
+                          }
+                        }}
+                        className="px-3 py-1 bg-rose-600 text-white rounded font-medium hover:bg-rose-700"
+                      >
+                        Padam
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
 
             {/* Dashboard Keseluruhan Jawapan & Markah */}
