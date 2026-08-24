@@ -8,7 +8,7 @@ interface Soalan {
   id: string;
   text: string;
   kategori: 'MRS' | 'MTS' | 'KEDUA-DUA';
-  jenis: 'Objektif' | 'Subjektif' | 'Multiple Choice';
+  jenis: 'Objektif' | 'Subjektif' | 'Multiple Choice' | 'Kombinasi';
   pilihan: string[];
   markahMax: number;
 }
@@ -28,13 +28,19 @@ export default function DashboardPage() {
 
   const [settings, setSettings] = useState({ statusPenyertaan: 'BUKA', footerText: '@2026, DIY Audit Arahan Amalan JKSM' });
   const [soalanList, setSoalanList] = useState<Soalan[]>([]);
-  // Jawapan boleh menyimpan String (Objektif/Subjektif) atau Array of String (Multiple Choice)
+  // Store jawapan: Boleh menyimpan String, Array, atau Object { pilihan, huraian } bagi soalan Kombinasi
   const [jawapan, setJawapan] = useState<Record<string, any>>({});
   const [submissions, setSubmissions] = useState<any[]>([]);
   
   // Admin Form State
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [newQ, setNewQ] = useState({ text: '', kategori: 'MRS', jenis: 'Objektif' as 'Objektif' | 'Subjektif' | 'Multiple Choice', pilihan: 'Ya,Tidak,Sebahagian', markahMax: 10 });
+  const [newQ, setNewQ] = useState({ 
+    text: '', 
+    kategori: 'MRS', 
+    jenis: 'Objektif' as 'Objektif' | 'Subjektif' | 'Multiple Choice' | 'Kombinasi', 
+    pilihan: 'Tiada,Ada,Ada dan pernah menerima anugerah peringkat jabatan,Ada dan pernah menerima anugerah peringkat negeri/ kebangsaan / antarabangsa', 
+    markahMax: 10 
+  });
 
   // Oditer State
   const [selectedSub, setSelectedSub] = useState<any | null>(null);
@@ -158,6 +164,15 @@ export default function DashboardPage() {
     } else {
       setJawapan({ ...jawapan, [qId]: currentList.filter(item => item !== opt) });
     }
+  };
+
+  // Kombinasi Handler (Radio + Textarea)
+  const handleKombinasiChange = (qId: string, field: 'pilihan' | 'huraian', val: string) => {
+    const currentObj = (typeof jawapan[qId] === 'object' && !Array.isArray(jawapan[qId])) ? jawapan[qId] : { pilihan: '', huraian: '' };
+    setJawapan({
+      ...jawapan,
+      [qId]: { ...currentObj, [field]: val }
+    });
   };
 
   // Oditee Hantar Jawapan
@@ -377,7 +392,8 @@ export default function DashboardPage() {
                   >
                     <option value="Objektif">Objektif (Pilihan Tunggal - Radio)</option>
                     <option value="Multiple Choice">Multiple Choice (Lebih Dari 1 Jawapan - Checkbox)</option>
-                    <option value="Subjektif">Subjektif (Teks Huraian)</option>
+                    <option value="Kombinasi">Kombinasi (Pilihan Jawapan + Ruang Penjelasan)</option>
+                    <option value="Subjektif">Subjektif (Teks Huraian Sahaja)</option>
                   </select>
                 </div>
                 <div>
@@ -396,7 +412,7 @@ export default function DashboardPage() {
                       type="text"
                       value={newQ.pilihan}
                       onChange={(e) => setNewQ({ ...newQ, pilihan: e.target.value })}
-                      placeholder="Contoh: Dokumen A,Dokumen B,Dokumen C"
+                      placeholder="Tiada,Ada,Ada dan pernah menerima anugerah..."
                       className="w-full mt-1 p-2.5 border rounded-lg text-sm bg-slate-50"
                     />
                   </div>
@@ -434,7 +450,7 @@ export default function DashboardPage() {
                         <div className="flex items-center gap-2">
                           <span className="font-bold text-sm text-slate-900">{idx + 1}. {q.text}</span>
                           <span className="text-[10px] bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-bold">{q.kategori}</span>
-                          <span className="text-[10px] bg-purple-100 text-purple-800 px-2 py-0.5 rounded font-bold">{q.jenis}</span>
+                          <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold">{q.jenis}</span>
                         </div>
                         {q.jenis !== 'Subjektif' && (
                           <p className="text-xs text-slate-500">Pilihan: {q.pilihan.join(', ')}</p>
@@ -644,7 +660,7 @@ export default function DashboardPage() {
 
                     {/* FORMAT 1: OBJEKTIF (RADIO - 1 JAWAPAN) */}
                     {q.jenis === 'Objektif' && (
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                         {(q.pilihan.length > 0 ? q.pilihan : ['Ya', 'Tidak', 'Sebahagian']).map((opt) => (
                           <label key={opt} className={`flex items-center gap-2 p-3 rounded-lg border text-sm cursor-pointer ${
                             jawapan[q.id] === opt ? 'bg-blue-50 border-blue-500 text-blue-900 font-medium' : 'bg-white border-slate-200 text-slate-700'
@@ -686,7 +702,47 @@ export default function DashboardPage() {
                       </div>
                     )}
 
-                    {/* FORMAT 3: SUBJEKTIF (TEXTAREA) */}
+                    {/* FORMAT 3: KOMBINASI (RADIO PILIHAN + KOTAK HURAIAN PENJELASAN) */}
+                    {q.jenis === 'Kombinasi' && (
+                      <div className="space-y-4 pt-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {q.pilihan.map((opt) => {
+                            const selectedOpt = jawapan[q.id]?.pilihan;
+                            return (
+                              <label key={opt} className={`flex items-center gap-2.5 p-3 rounded-lg border text-sm cursor-pointer ${
+                                selectedOpt === opt ? 'bg-blue-50 border-blue-500 text-blue-900 font-medium' : 'bg-white border-slate-200 text-slate-700'
+                              }`}>
+                                <input
+                                  type="radio"
+                                  name={`q_kombo_${q.id}`}
+                                  value={opt}
+                                  disabled={isClosed}
+                                  checked={selectedOpt === opt}
+                                  onChange={(e) => handleKombinasiChange(q.id, 'pilihan', e.target.value)}
+                                  className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                                />
+                                {opt}
+                              </label>
+                            );
+                          })}
+                        </div>
+                        <div>
+                          <label className="text-xs font-semibold text-slate-700 block mb-1">
+                            Sertakan Penjelasan Lanjut / Huraian (Jika Berkaitan):
+                          </label>
+                          <textarea
+                            rows={3}
+                            disabled={isClosed}
+                            placeholder="Sertakan penjelasan lanjut inisiatif / inovasi / anugerah berkaitan pematuhan Arahan Amalan..."
+                            value={jawapan[q.id]?.huraian || ''}
+                            onChange={(e) => handleKombinasiChange(q.id, 'huraian', e.target.value)}
+                            className="w-full p-3 rounded-lg border border-slate-300 text-sm bg-white disabled:bg-slate-100 focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* FORMAT 4: SUBJEKTIF (TEXTAREA SAHAJA) */}
                     {q.jenis === 'Subjektif' && (
                       <textarea
                         rows={3}
@@ -790,11 +846,21 @@ export default function DashboardPage() {
                   ) : (
                     oditerSoalanList.map((q, idx) => {
                       const ansVal = selectedSub.jawapanJSON ? selectedSub.jawapanJSON[q.id] : null;
-                      let formattedAnswer = 'Tiada Jawapan';
-                      if (Array.isArray(ansVal)) {
-                        formattedAnswer = ansVal.join(', ');
-                      } else if (ansVal) {
-                        formattedAnswer = String(ansVal);
+                      let formattedAnswer: any = 'Tiada Jawapan';
+
+                      if (ansVal) {
+                        if (typeof ansVal === 'object' && !Array.isArray(ansVal)) {
+                          formattedAnswer = (
+                            <div>
+                              <div><strong className="text-blue-700">Pilihan:</strong> {ansVal.pilihan || 'Tiada'}</div>
+                              <div className="mt-1"><strong className="text-slate-700">Penjelasan / Huraian:</strong> {ansVal.huraian || 'Tiada Huraian'}</div>
+                            </div>
+                          );
+                        } else if (Array.isArray(ansVal)) {
+                          formattedAnswer = ansVal.join(', ');
+                        } else {
+                          formattedAnswer = String(ansVal);
+                        }
                       }
 
                       return (
@@ -805,9 +871,9 @@ export default function DashboardPage() {
                           </div>
                           <div className="p-3 bg-white border border-slate-200 rounded text-slate-800">
                             <span className="font-bold text-slate-500 block mb-1">Jawapan Dihantar Oditee:</span>
-                            <span className="font-semibold text-slate-900">
+                            <div className="font-semibold text-slate-900">
                               {formattedAnswer !== 'Tiada Jawapan' ? formattedAnswer : <em className="text-slate-400 font-normal">Tiada Jawapan</em>}
-                            </span>
+                            </div>
                           </div>
                           <div className="flex items-center gap-3 pt-1">
                             <label className="font-semibold text-slate-700">Markah Dinilai Oditer (0 - {q.markahMax}):</label>
