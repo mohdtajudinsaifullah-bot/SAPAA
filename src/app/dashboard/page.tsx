@@ -8,7 +8,7 @@ interface Soalan {
   id: string;
   text: string;
   kategori: 'MRS' | 'MTS' | 'KEDUA-DUA';
-  jenis: 'Objektif' | 'Subjektif';
+  jenis: 'Objektif' | 'Subjektif' | 'Multiple Choice';
   pilihan: string[];
   markahMax: number;
 }
@@ -28,12 +28,13 @@ export default function DashboardPage() {
 
   const [settings, setSettings] = useState({ statusPenyertaan: 'BUKA', footerText: '@2026, DIY Audit Arahan Amalan JKSM' });
   const [soalanList, setSoalanList] = useState<Soalan[]>([]);
-  const [jawapan, setJawapan] = useState<Record<string, string>>({});
+  // Jawapan boleh menyimpan String (Objektif/Subjektif) atau Array of String (Multiple Choice)
+  const [jawapan, setJawapan] = useState<Record<string, any>>({});
   const [submissions, setSubmissions] = useState<any[]>([]);
   
   // Admin Form State
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [newQ, setNewQ] = useState({ text: '', kategori: 'MRS', jenis: 'Objektif', pilihan: 'Ya,Tidak,Sebahagian', markahMax: 10 });
+  const [newQ, setNewQ] = useState({ text: '', kategori: 'MRS', jenis: 'Objektif' as 'Objektif' | 'Subjektif' | 'Multiple Choice', pilihan: 'Ya,Tidak,Sebahagian', markahMax: 10 });
 
   // Oditer State
   const [selectedSub, setSelectedSub] = useState<any | null>(null);
@@ -83,14 +84,11 @@ export default function DashboardPage() {
         }
       }
 
-      // Jika Admin / Oditer: Tarik SEMUA soalan (tanpa filter kategori)
-      // Jika Oditee: Tarik soalan ikut hierarki profil (MRS/MTS)
       const qCategoryParam = (currentRole === 'Admin' || currentRole === 'Oditer') ? '' : (dataProf?.hierarki || 'MRS');
       const resQ = await fetch(`${gasUrl}?action=getSoalan&kategori=${qCategoryParam}`);
       const dataQ = await resQ.json();
       setSoalanList(Array.isArray(dataQ) ? dataQ : []);
 
-      // Load Submisyen jika Admin / Oditer
       if (currentRole === 'Admin' || currentRole === 'Oditer') {
         const resSub = await fetch(`${gasUrl}?action=getAllSubmissions`);
         const dataSub = await resSub.json();
@@ -108,14 +106,12 @@ export default function DashboardPage() {
     if (isLoaded) loadAllData();
   }, [isLoaded, user]);
 
-  // Bila Oditer pilih daerah, muatkan soalan khas mengikut Hierarki daerah tersebut (MRS/MTS)
   const handleSelectSubmisyenForAudit = async (sub: any) => {
     setSelectedSub(sub);
     setMarkahInput(sub.penilaian?.markahJSON || {});
     setUlasanOditer(sub.penilaian?.ulasan || '');
 
     try {
-      // Ambil soalan khusus mengikut Hierarki penyerahan (MRS atau MTS)
       const resQ = await fetch(`${gasUrl}?action=getSoalan&kategori=${sub.hierarki || 'MRS'}`);
       const dataQ = await resQ.json();
       setOditerSoalanList(Array.isArray(dataQ) ? dataQ : []);
@@ -151,6 +147,16 @@ export default function DashboardPage() {
       setStatusMsg({ type: 'error', text: 'Gagal mengemaskini profil.' });
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  // Multiple Choice Checkbox Change Handler
+  const handleCheckboxChange = (qId: string, opt: string, isChecked: boolean) => {
+    const currentList: string[] = Array.isArray(jawapan[qId]) ? jawapan[qId] : [];
+    if (isChecked) {
+      setJawapan({ ...jawapan, [qId]: [...currentList, opt] });
+    } else {
+      setJawapan({ ...jawapan, [qId]: currentList.filter(item => item !== opt) });
     }
   };
 
@@ -215,7 +221,7 @@ export default function DashboardPage() {
           action: editingId ? 'updateSoalan' : 'addSoalan',
           id: editingId,
           ...newQ,
-          pilihan: newQ.pilihan.split(',')
+          pilihan: newQ.jenis !== 'Subjektif' ? newQ.pilihan.split(',') : []
         })
       });
       setStatusMsg({ type: 'success', text: editingId ? 'Soalan berjaya dikemaskini!' : 'Soalan berjaya ditambah!' });
@@ -367,9 +373,10 @@ export default function DashboardPage() {
                   <select
                     value={newQ.jenis}
                     onChange={(e) => setNewQ({ ...newQ, jenis: e.target.value as any })}
-                    className="w-full mt-1 p-2.5 border rounded-lg text-sm bg-slate-50"
+                    className="w-full mt-1 p-2.5 border rounded-lg text-sm bg-slate-50 font-medium"
                   >
-                    <option value="Objektif">Objektif (Pilihan)</option>
+                    <option value="Objektif">Objektif (Pilihan Tunggal - Radio)</option>
+                    <option value="Multiple Choice">Multiple Choice (Lebih Dari 1 Jawapan - Checkbox)</option>
                     <option value="Subjektif">Subjektif (Teks Huraian)</option>
                   </select>
                 </div>
@@ -382,14 +389,14 @@ export default function DashboardPage() {
                     className="w-full mt-1 p-2.5 border rounded-lg text-sm bg-slate-50"
                   />
                 </div>
-                {newQ.jenis === 'Objektif' && (
+                {newQ.jenis !== 'Subjektif' && (
                   <div className="md:col-span-3">
                     <label className="text-xs font-semibold text-slate-700">Pilihan Jawapan (Pisahkan dengan koma)</label>
                     <input
                       type="text"
                       value={newQ.pilihan}
                       onChange={(e) => setNewQ({ ...newQ, pilihan: e.target.value })}
-                      placeholder="Ya,Tidak,Sebahagian"
+                      placeholder="Contoh: Dokumen A,Dokumen B,Dokumen C"
                       className="w-full mt-1 p-2.5 border rounded-lg text-sm bg-slate-50"
                     />
                   </div>
@@ -427,9 +434,9 @@ export default function DashboardPage() {
                         <div className="flex items-center gap-2">
                           <span className="font-bold text-sm text-slate-900">{idx + 1}. {q.text}</span>
                           <span className="text-[10px] bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-bold">{q.kategori}</span>
-                          <span className="text-[10px] bg-slate-200 text-slate-700 px-2 py-0.5 rounded font-semibold">{q.jenis}</span>
+                          <span className="text-[10px] bg-purple-100 text-purple-800 px-2 py-0.5 rounded font-bold">{q.jenis}</span>
                         </div>
-                        {q.jenis === 'Objektif' && (
+                        {q.jenis !== 'Subjektif' && (
                           <p className="text-xs text-slate-500">Pilihan: {q.pilihan.join(', ')}</p>
                         )}
                       </div>
@@ -635,7 +642,8 @@ export default function DashboardPage() {
                       </span>
                     </div>
 
-                    {q.jenis === 'Objektif' ? (
+                    {/* FORMAT 1: OBJEKTIF (RADIO - 1 JAWAPAN) */}
+                    {q.jenis === 'Objektif' && (
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
                         {(q.pilihan.length > 0 ? q.pilihan : ['Ya', 'Tidak', 'Sebahagian']).map((opt) => (
                           <label key={opt} className={`flex items-center gap-2 p-3 rounded-lg border text-sm cursor-pointer ${
@@ -653,7 +661,33 @@ export default function DashboardPage() {
                           </label>
                         ))}
                       </div>
-                    ) : (
+                    )}
+
+                    {/* FORMAT 2: MULTIPLE CHOICE (CHECKBOX - BOLEH PILIH LEBIH DARI 1) */}
+                    {q.jenis === 'Multiple Choice' && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                        {q.pilihan.map((opt) => {
+                          const isChecked = Array.isArray(jawapan[q.id]) && jawapan[q.id].includes(opt);
+                          return (
+                            <label key={opt} className={`flex items-center gap-2.5 p-3 rounded-lg border text-sm cursor-pointer ${
+                              isChecked ? 'bg-purple-50 border-purple-500 text-purple-900 font-medium' : 'bg-white border-slate-200 text-slate-700'
+                            }`}>
+                              <input
+                                type="checkbox"
+                                disabled={isClosed}
+                                checked={isChecked}
+                                onChange={(e) => handleCheckboxChange(q.id, opt, e.target.checked)}
+                                className="w-4 h-4 text-purple-600 rounded focus:ring-purple-500"
+                              />
+                              {opt}
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* FORMAT 3: SUBJEKTIF (TEXTAREA) */}
+                    {q.jenis === 'Subjektif' && (
                       <textarea
                         rows={3}
                         disabled={isClosed}
@@ -754,31 +788,41 @@ export default function DashboardPage() {
                       Sedang memuatkan soalan atau tiada soalan bagi kategori {selectedSub.hierarki}...
                     </div>
                   ) : (
-                    oditerSoalanList.map((q, idx) => (
-                      <div key={q.id || idx} className="p-4 bg-slate-50 rounded-lg border text-xs space-y-3">
-                        <div className="font-semibold text-slate-900 text-sm flex justify-between">
-                          <span>{idx + 1}. {q.text}</span>
-                          <span className="text-xs text-blue-700 bg-blue-50 px-2 py-0.5 rounded font-bold">Max: {q.markahMax}m</span>
+                    oditerSoalanList.map((q, idx) => {
+                      const ansVal = selectedSub.jawapanJSON ? selectedSub.jawapanJSON[q.id] : null;
+                      let formattedAnswer = 'Tiada Jawapan';
+                      if (Array.isArray(ansVal)) {
+                        formattedAnswer = ansVal.join(', ');
+                      } else if (ansVal) {
+                        formattedAnswer = String(ansVal);
+                      }
+
+                      return (
+                        <div key={q.id || idx} className="p-4 bg-slate-50 rounded-lg border text-xs space-y-3">
+                          <div className="font-semibold text-slate-900 text-sm flex justify-between">
+                            <span>{idx + 1}. {q.text} <span className="text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded font-normal ml-2">{q.jenis}</span></span>
+                            <span className="text-xs text-blue-700 bg-blue-50 px-2 py-0.5 rounded font-bold">Max: {q.markahMax}m</span>
+                          </div>
+                          <div className="p-3 bg-white border border-slate-200 rounded text-slate-800">
+                            <span className="font-bold text-slate-500 block mb-1">Jawapan Dihantar Oditee:</span>
+                            <span className="font-semibold text-slate-900">
+                              {formattedAnswer !== 'Tiada Jawapan' ? formattedAnswer : <em className="text-slate-400 font-normal">Tiada Jawapan</em>}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3 pt-1">
+                            <label className="font-semibold text-slate-700">Markah Dinilai Oditer (0 - {q.markahMax}):</label>
+                            <input
+                              type="number"
+                              max={q.markahMax}
+                              min={0}
+                              value={markahInput[q.id] ?? 0}
+                              onChange={(e) => setMarkahInput({ ...markahInput, [q.id]: Number(e.target.value) })}
+                              className="w-24 p-2 border rounded text-center font-bold text-sm bg-white text-blue-700 focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
                         </div>
-                        <div className="p-3 bg-white border border-slate-200 rounded text-slate-800">
-                          <span className="font-bold text-slate-500 block mb-1">Jawapan Dihantar Oditee:</span>
-                          <span className="font-semibold text-slate-900">
-                            {selectedSub.jawapanJSON && selectedSub.jawapanJSON[q.id] ? selectedSub.jawapanJSON[q.id] : <em className="text-slate-400 font-normal">Tiada Jawapan</em>}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-3 pt-1">
-                          <label className="font-semibold text-slate-700">Markah Dinilai Oditer (0 - {q.markahMax}):</label>
-                          <input
-                            type="number"
-                            max={q.markahMax}
-                            min={0}
-                            value={markahInput[q.id] ?? 0}
-                            onChange={(e) => setMarkahInput({ ...markahInput, [q.id]: Number(e.target.value) })}
-                            className="w-24 p-2 border rounded text-center font-bold text-sm bg-white text-blue-700 focus:ring-2 focus:ring-blue-500"
-                          />
-                        </div>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
 
                   <div className="pt-2">
