@@ -1,131 +1,193 @@
 import { SignInButton, SignedIn, SignedOut, UserButton } from '@clerk/nextjs';
 import Link from 'next/link';
-import { ShieldCheck, ArrowRight, Lock, CheckCircle2 } from 'lucide-react';
+import { ShieldCheck, ArrowRight, Lock, CheckCircle2, Calendar, CheckSquare, FileText } from 'lucide-react';
 
-async function getSettings() {
+async function getHomeData() {
   try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_GAS_URL}?action=getSettings`, {
-      cache: 'no-store'
-    });
-    return await res.json();
+    const [resSettings, resPemantauan] = await Promise.all([
+      fetch(`${process.env.NEXT_PUBLIC_GAS_URL}?action=getSettings`, { cache: 'no-store' }),
+      fetch(`${process.env.NEXT_PUBLIC_GAS_URL}?action=getJadualPemantauan`, { cache: 'no-store' })
+    ]);
+    const settings = await resSettings.json();
+    const pemantauan = await resPemantauan.json();
+    return { settings, pemantauan };
   } catch (e) {
     return {
-      headerImage: '',
-      statusPenyertaan: 'BUKA',
-      footerText: '@2026, DIY Audit Arahan Amalan JKSM',
-      notis: 'Selamat Datang ke Sistem Audit Pematuhan Arahan Amalan JKSM.'
+      settings: { banners: [], statusPenyertaan: 'BUKA', footerText: '@2026, DIY Audit Arahan Amalan JKSM' },
+      pemantauan: { jadual: [], submitted: [] }
     };
   }
 }
 
 export default async function HomePage() {
-  const settings = await getSettings();
+  const { settings, pemantauan } = await getHomeData();
   const isOpen = settings.statusPenyertaan === 'BUKA';
 
   return (
-    <div className="flex-1 flex flex-col justify-between min-h-screen">
+    <div className="flex-1 flex flex-col justify-between min-h-screen bg-slate-50">
       {/* 1. Header Navigation Bar */}
-      <header className="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50">
+      <header className="bg-white/90 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <ShieldCheck className="w-8 h-8 text-slate-800" />
+            <ShieldCheck className="w-8 h-8 text-blue-700" />
             <span className="font-bold text-lg text-slate-900 tracking-tight">
               DIY SAPAA <span className="text-blue-700">JKSM</span>
             </span>
           </div>
 
-          <div>
+          <div className="flex items-center gap-4">
+            <nav className="flex items-center gap-2 bg-slate-100 p-1 rounded-lg text-xs font-semibold">
+              <span className="px-3 py-1.5 bg-white shadow-sm text-blue-700 rounded-md">1. Home (Umum)</span>
+              <Link href="/dashboard" className="px-3 py-1.5 text-slate-600 hover:text-slate-900">2. Dashboard</Link>
+            </nav>
+
             <SignedOut>
               <SignInButton mode="modal">
-                <button className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-medium text-sm transition-all shadow-sm flex items-center gap-2">
-                  Log Masuk <ArrowRight className="w-4 h-4" />
+                <button className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-medium text-xs transition shadow-sm flex items-center gap-1.5">
+                  Log Masuk <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               </SignInButton>
             </SignedOut>
             <SignedIn>
-              <div className="flex items-center gap-4">
-                <Link 
-                  href="/dashboard" 
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition"
-                >
-                  Ke Dashboard
-                </Link>
-                <UserButton />
-              </div>
+              <UserButton />
             </SignedIn>
           </div>
         </div>
       </header>
 
-      {/* 2. Header Banner Image Dynamic dari Google Sheet */}
-      {settings.headerImage && (
+      {/* 2. Dynamic Banner Header (Support GIF, PNG, JPEG & Multi-image) */}
+      {settings.banners && settings.banners.length > 0 && (
         <div className="w-full bg-slate-900 overflow-hidden border-b border-slate-200">
-          <div className="max-w-7xl mx-auto h-48 md:h-64 relative">
-            <img 
-              src={settings.headerImage} 
-              alt="Banner Header Audit JKSM" 
-              className="w-full h-full object-cover opacity-90"
-            />
+          <div className="max-w-7xl mx-auto h-52 md:h-72 relative flex items-center justify-center overflow-x-auto gap-2 p-2 scrollbar-none">
+            {settings.banners.map((url: string, idx: number) => (
+              <img
+                key={idx}
+                src={url}
+                alt={`Banner Header ${idx + 1}`}
+                className="h-full object-cover rounded-lg shadow-md flex-shrink-0 min-w-[300px] max-w-full"
+              />
+            ))}
           </div>
         </div>
       )}
 
-      {/* 3. Hero Section / Main Content */}
-      <main className="max-w-5xl mx-auto px-4 py-12 flex-1 flex flex-col justify-center">
-        <div className="bg-white rounded-2xl shadow-xl border border-slate-200/80 p-8 md:p-12 relative overflow-hidden">
-          
-          {/* Status Badge */}
-          <div className="flex items-center justify-between mb-8 pb-6 border-b border-slate-100">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+      {/* 3. Main Content Area */}
+      <main className="max-w-6xl mx-auto px-4 py-8 flex-1 w-full space-y-8">
+        {/* Status Badge & Hero */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 md:p-8">
+          <div className="flex items-center justify-between mb-4 pb-4 border-b border-slate-100">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
               Status Permohonan Audit
             </span>
             {isOpen ? (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                 <CheckCircle2 className="w-3.5 h-3.5" /> Penyertaan DIBUKA
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-rose-50 text-rose-700 border border-rose-200">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200">
                 <Lock className="w-3.5 h-3.5" /> Penyertaan DITUTUP
               </span>
             )}
           </div>
 
-          <div className="space-y-4">
-            <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight">
-              Sistem DIY Audit Arahan Amalan
+          <div className="space-y-3">
+            <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">
+              Sistem DIY Audit Arahan Amalan JKSM
             </h1>
-            <p className="text-slate-600 text-lg leading-relaxed">
+            <p className="text-slate-600 text-sm leading-relaxed">
               {settings.notis || "Platform rasmi penilaian dan pengauditan kendiri Arahan Amalan untuk Mahkamah Syariah Daerah seluruh Malaysia."}
             </p>
           </div>
 
-          {/* Action Area */}
-          <div className="mt-10 pt-6 border-t border-slate-100 flex flex-col sm:flex-row items-center gap-4">
+          <div className="mt-6 pt-4 border-t flex items-center gap-3">
             <SignedOut>
               <SignInButton mode="modal">
-                <button className="w-full sm:w-auto px-8 py-3.5 bg-blue-700 hover:bg-blue-800 text-white font-semibold rounded-xl transition shadow-lg shadow-blue-700/20 text-center">
-                  Mula Isi Borang Audit
+                <button className="px-6 py-2.5 bg-blue-700 hover:bg-blue-800 text-white font-medium text-xs rounded-lg transition shadow-md">
+                  Mula Isi Borang Audit (Log Masuk)
                 </button>
               </SignInButton>
             </SignedOut>
             <SignedIn>
-              <Link
-                href="/dashboard"
-                className="w-full sm:w-auto px-8 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl transition shadow-lg shadow-emerald-600/20 text-center"
-              >
+              <Link href="/dashboard" className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs rounded-lg transition shadow-md">
                 Akses Dashboard Penyertaan
               </Link>
             </SignedIn>
           </div>
+        </div>
 
+        {/* 4. Jadual Pemantauan & Status Penyerahan Daerah */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Table 1: Jadual Pemantauan Audit */}
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="p-4 bg-slate-900 text-white font-semibold text-xs flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-blue-400" /> Jadual Pemantauan Audit Syariah
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-100 border-b font-bold text-slate-700">
+                  <tr>
+                    <th className="p-3">Negeri / Daerah</th>
+                    <th className="p-3">Auditer Bertugas</th>
+                    <th className="p-3">Tarikh Audit</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {pemantauan.jadual.length === 0 ? (
+                    <tr><td colSpan={3} className="p-4 text-center text-slate-400">Tiada maklumat jadual.</td></tr>
+                  ) : (
+                    pemantauan.jadual.map((j: any, i: number) => (
+                      <tr key={i} className="hover:bg-slate-50">
+                        <td className="p-3 font-semibold text-slate-900">{j.daerah}, {j.negeri}</td>
+                        <td className="p-3 text-slate-600">{j.oditer || 'Akan Ditentukan'}</td>
+                        <td className="p-3 font-bold text-blue-700">{j.tarikhAudit}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Table 2: Daerah yang DAH SUBMIT Jawapan */}
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="p-4 bg-slate-900 text-white font-semibold text-xs flex items-center gap-2">
+              <CheckSquare className="w-4 h-4 text-emerald-400" /> Status Penyerahan Daerah (Telah Hantar)
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-100 border-b font-bold text-slate-700">
+                  <tr>
+                    <th className="p-3">Negeri / Daerah</th>
+                    <th className="p-3">Tarikh Penyerahan</th>
+                    <th className="p-3">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {pemantauan.submitted.length === 0 ? (
+                    <tr><td colSpan={3} className="p-4 text-center text-slate-400">Belum ada penyerahan lagi.</td></tr>
+                  ) : (
+                    pemantauan.submitted.map((s: any, i: number) => (
+                      <tr key={i} className="hover:bg-slate-50">
+                        <td className="p-3 font-semibold text-slate-900">{s.daerah}, {s.negeri}</td>
+                        <td className="p-3 text-slate-600">{s.tarikhSubmit}</td>
+                        <td className="p-3">
+                          <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded font-semibold text-[10px]">
+                            DIHANTAR
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </main>
 
-      {/* 4. Dynamic Footer dari Google Sheet */}
-      <footer className="bg-slate-900 text-slate-400 py-6 border-t border-slate-800">
-        <div className="max-w-7xl mx-auto px-4 text-center text-sm font-medium">
-          {settings.footerText || "@2026, DIY Audit Arahan Amalan JKSM"}
-        </div>
+      {/* Footer */}
+      <footer className="bg-slate-900 text-slate-400 py-4 border-t border-slate-800 text-center text-xs">
+        {settings.footerText || "@2026, DIY Audit Arahan Amalan JKSM"}
       </footer>
     </div>
   );
