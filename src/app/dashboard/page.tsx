@@ -3,7 +3,7 @@
 import { useUser, UserButton } from '@clerk/nextjs';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ShieldCheck, FileText, CheckCircle, Lock, Edit3, AlertCircle, Printer, PlusCircle, ToggleLeft, ToggleRight, Save } from 'lucide-react';
+import { ShieldCheck, CheckCircle, Lock, Edit3, AlertCircle, Printer, PlusCircle, ToggleLeft, ToggleRight, Save, Trash2, Edit } from 'lucide-react';
 
 interface Soalan {
   id: string;
@@ -43,8 +43,7 @@ export default function DashboardPage() {
     kategori: 'MRS', 
     jenis: 'Objektif' as any, 
     pilihan: 'Ya,Tidak,Sebahagian', 
-    markahMax: 10,
-    borang: 'Audit Arahan Amalan'
+    markahMax: 10
   });
 
   // Oditer State
@@ -58,6 +57,9 @@ export default function DashboardPage() {
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const gasUrl = process.env.NEXT_PUBLIC_GAS_URL;
+
+  // Semak adakah borang perlukan Markah Maksimum (Hanya Audit Arahan Amalan perlukan markah)
+  const isAuditForm = selectedBorang === 'Audit Arahan Amalan';
 
   useEffect(() => {
     if (user) {
@@ -237,6 +239,7 @@ export default function DashboardPage() {
     }
   };
 
+  // Admin: Tambah / Kemaskini Soalan
   const handleAddSoalan = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
@@ -248,12 +251,14 @@ export default function DashboardPage() {
           action: editingId ? 'updateSoalan' : 'addSoalan',
           id: editingId,
           ...newQ,
+          borang: selectedBorang,
+          markahMax: isAuditForm ? newQ.markahMax : 0,
           pilihan: newQ.jenis !== 'Subjektif' ? newQ.pilihan.split(',') : []
         })
       });
       setStatusMsg({ type: 'success', text: editingId ? 'Soalan berjaya dikemaskini!' : 'Soalan berjaya ditambah!' });
       setEditingId(null);
-      setNewQ({ text: '', kategori: 'MRS', jenis: 'Objektif', pilihan: 'Ya,Tidak,Sebahagian', markahMax: 10, borang: selectedBorang });
+      setNewQ({ text: '', kategori: 'MRS', jenis: 'Objektif', pilihan: 'Ya,Tidak,Sebahagian', markahMax: 10 });
       loadAllData();
     } catch (e) {
       setStatusMsg({ type: 'error', text: 'Gagal memproses soalan.' });
@@ -346,13 +351,16 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Pilihan Jenis Borang Dropdown (Pelbagai Borang) */}
+        {/* Pilihan Jenis Borang Dropdown (Top Level Control) */}
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3 print:hidden">
-          <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Pilih Jenis Borang:</label>
+          <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">PILIH JENIS BORANG:</label>
           <select
             value={selectedBorang}
-            onChange={(e) => setSelectedBorang(e.target.value)}
-            className="w-full sm:w-auto p-2 border rounded-lg text-xs font-semibold bg-slate-50 text-blue-900 border-blue-300 focus:ring-2 focus:ring-blue-500"
+            onChange={(e) => {
+              setSelectedBorang(e.target.value);
+              setEditingId(null);
+            }}
+            className="w-full sm:w-auto p-2.5 border rounded-lg text-xs font-bold bg-blue-50 text-blue-900 border-blue-300 focus:ring-2 focus:ring-blue-500"
           >
             <option value="Audit Arahan Amalan">1. Borang DIY Audit Arahan Amalan</option>
             <option value="Maklumbalas Oditer">2. Borang Maklumbalas / Kepuasan Pelanggan (Oditer)</option>
@@ -380,7 +388,7 @@ export default function DashboardPage() {
               </button>
             </div>
 
-            {/* Borang Bina / Kemaskini Soalan */}
+            {/* Borang Bina / Kemaskini Soalan Dinamik */}
             <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
               <h2 className="text-md font-bold text-slate-900 flex items-center gap-2">
                 <PlusCircle className="w-5 h-5 text-blue-600" /> {editingId ? 'Kemaskini Soalan' : `Tambah Soalan Baharu (${selectedBorang})`}
@@ -396,18 +404,6 @@ export default function DashboardPage() {
                     placeholder="Masukkan soalan audit..."
                     className="w-full mt-1 p-2.5 border rounded-lg text-sm bg-slate-50"
                   />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-slate-700">Jenis Borang</label>
-                  <select
-                    value={newQ.borang}
-                    onChange={(e) => setNewQ({ ...newQ, borang: e.target.value })}
-                    className="w-full mt-1 p-2.5 border rounded-lg text-sm bg-slate-50 font-semibold text-blue-900"
-                  >
-                    <option value="Audit Arahan Amalan">1. Audit Arahan Amalan</option>
-                    <option value="Maklumbalas Oditer">2. Maklumbalas Oditer</option>
-                    <option value="Cadangan Penambahbaikan">3. Cadangan Penambahbaikan</option>
-                  </select>
                 </div>
                 <div>
                   <label className="text-xs font-semibold text-slate-700">Kategori Mahkamah</label>
@@ -434,33 +430,160 @@ export default function DashboardPage() {
                     <option value="Subjektif">Subjektif (Teks Huraian)</option>
                   </select>
                 </div>
-                <div>
-                  <label className="text-xs font-semibold text-slate-700">Markah Maksimum</label>
-                  <input
-                    type="number"
-                    value={newQ.markahMax}
-                    onChange={(e) => setNewQ({ ...newQ, markahMax: Number(e.target.value) })}
-                    className="w-full mt-1 p-2.5 border rounded-lg text-sm bg-slate-50"
-                  />
-                </div>
+
+                {/* Sembunyikan Markah Maksimum Jika BUKAN Borang Audit Arahan Amalan */}
+                {isAuditForm && (
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700">Markah Maksimum</label>
+                    <input
+                      type="number"
+                      value={newQ.markahMax}
+                      onChange={(e) => setNewQ({ ...newQ, markahMax: Number(e.target.value) })}
+                      className="w-full mt-1 p-2.5 border rounded-lg text-sm bg-slate-50 font-bold text-blue-700"
+                    />
+                  </div>
+                )}
+
                 {newQ.jenis !== 'Subjektif' && (
-                  <div className="md:col-span-2">
+                  <div className="md:col-span-3">
                     <label className="text-xs font-semibold text-slate-700">Pilihan Jawapan (Pisahkan dengan koma)</label>
                     <input
                       type="text"
                       value={newQ.pilihan}
                       onChange={(e) => setNewQ({ ...newQ, pilihan: e.target.value })}
-                      placeholder="Tiada,Ada,Ada dan pernah..."
+                      placeholder="Ya,Tidak,Sebahagian"
                       className="w-full mt-1 p-2.5 border rounded-lg text-sm bg-slate-50"
                     />
                   </div>
                 )}
+
                 <div className="md:col-span-3 flex justify-end gap-2">
+                  {editingId && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingId(null);
+                        setNewQ({ text: '', kategori: 'MRS', jenis: 'Objektif', pilihan: 'Ya,Tidak,Sebahagian', markahMax: 10 });
+                      }}
+                      className="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-300"
+                    >
+                      Batal
+                    </button>
+                  )}
                   <button type="submit" disabled={submitting} className="px-5 py-2 bg-blue-700 text-white rounded-lg text-sm font-medium hover:bg-blue-800">
                     {submitting ? 'Menyimpan...' : editingId ? 'Kemaskini Soalan' : 'Tambah Soalan'}
                   </button>
                 </div>
               </form>
+            </div>
+
+            {/* JADUAL SENARAI SOALAN (Filtered Dinamik Mengikut Borang) */}
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden p-6 space-y-4">
+              <div className="flex justify-between items-center border-b pb-3">
+                <h3 className="text-md font-bold text-slate-900">
+                  Senarai Soalan: <span className="text-blue-700">{selectedBorang}</span>
+                </h3>
+                <span className="text-xs bg-blue-50 text-blue-800 px-3 py-1 rounded-full font-bold">
+                  {soalanList.length} Soalan Ditemui
+                </span>
+              </div>
+
+              {soalanList.length === 0 ? (
+                <p className="text-slate-500 text-xs py-4 text-center">Tiada soalan bagi borang "{selectedBorang}". Sila tambah soalan baharu di atas.</p>
+              ) : (
+                <div className="space-y-3">
+                  {soalanList.map((q, idx) => (
+                    <div key={q.id || idx} className="p-4 rounded-lg bg-slate-50 border border-slate-200 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-sm text-slate-900">{idx + 1}. {q.text}</span>
+                          <span className="text-[10px] bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-bold">{q.kategori}</span>
+                          <span className="text-[10px] bg-slate-200 text-slate-700 px-2 py-0.5 rounded font-semibold">{q.jenis}</span>
+                        </div>
+                        {q.jenis !== 'Subjektif' && (
+                          <p className="text-xs text-slate-500">Pilihan: {q.pilihan.join(', ')}</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 text-xs">
+                        {isAuditForm && (
+                          <span className="font-bold text-blue-700 bg-white border border-blue-200 px-2.5 py-1 rounded">Max: {q.markahMax}m</span>
+                        )}
+                        <button
+                          onClick={() => {
+                            setEditingId(q.id);
+                            setNewQ({
+                              text: q.text,
+                              kategori: q.kategori,
+                              jenis: q.jenis,
+                              pilihan: q.pilihan.join(','),
+                              markahMax: q.markahMax
+                            });
+                          }}
+                          className="px-3 py-1 bg-amber-500 text-white rounded font-medium hover:bg-amber-600 flex items-center gap-1"
+                        >
+                          <Edit className="w-3.5 h-3.5" /> Edit
+                        </button>
+                        <button
+                          onClick={async () => {
+                            if (confirm('Adakah anda pasti nak padam soalan ini?')) {
+                              await fetch(gasUrl!, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                                body: JSON.stringify({ action: 'deleteSoalan', id: q.id })
+                              });
+                              loadAllData();
+                            }
+                          }}
+                          className="px-3 py-1 bg-rose-600 text-white rounded font-medium hover:bg-rose-700 flex items-center gap-1"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" /> Padam
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Dashboard Keseluruhan Penyerahan */}
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+              <div className="p-4 bg-slate-900 text-white font-semibold text-sm flex justify-between items-center">
+                <span>Senarai Penyerahan & Penilaian Daerah (Keseluruhan)</span>
+                <span className="text-xs bg-slate-800 px-3 py-1 rounded-full">{submissions.length} Penyerahan</span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-100 border-b">
+                    <tr>
+                      <th className="p-3">Daerah / Negeri</th>
+                      <th className="p-3">Jenis Borang</th>
+                      <th className="p-3">Oditee</th>
+                      <th className="p-3">Tarikh Hantar</th>
+                      <th className="p-3">Status / Markah</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {submissions.length === 0 ? (
+                      <tr><td colSpan={5} className="p-6 text-center text-slate-500">Tiada penyerahan jawapan lagi.</td></tr>
+                    ) : (
+                      submissions.map((sub, idx) => (
+                        <tr key={idx} className="hover:bg-slate-50">
+                          <td className="p-3 font-semibold text-slate-900">{sub.daerah}, {sub.negeri}</td>
+                          <td className="p-3"><span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded font-bold">{sub.borang || 'Audit Arahan Amalan'}</span></td>
+                          <td className="p-3">{sub.nama}<br/><span className="text-slate-400">{sub.email}</span></td>
+                          <td className="p-3">{new Date(sub.tarikh).toLocaleDateString()}</td>
+                          <td className="p-3 font-bold text-slate-900">
+                            {sub.borang === 'Audit Arahan Amalan' 
+                              ? (sub.penilaian ? `${sub.penilaian.jumlahMarkah} / ${sub.penilaian.markahMax}` : 'Belum Dinilai')
+                              : <span className="text-emerald-600 font-semibold">Telah Diterima</span>
+                            }
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}
@@ -542,7 +665,7 @@ export default function DashboardPage() {
               </form>
             </div>
 
-            {/* Borang Soalan Oditee (Dengna Auto-Fill Jawapan Dihantar) */}
+            {/* Borang Soalan Oditee */}
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
               <div className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between print:bg-white print:text-black print:border-b">
                 <div>
@@ -569,9 +692,11 @@ export default function DashboardPage() {
                         <label className="font-semibold text-slate-900 text-sm">
                           {idx + 1}. {q.text}
                         </label>
-                        <span className="text-xs bg-blue-50 text-blue-700 px-2.5 py-1 rounded font-semibold whitespace-nowrap print:border">
-                          Max: {q.markahMax}m
-                        </span>
+                        {isAuditForm && (
+                          <span className="text-xs bg-blue-50 text-blue-700 px-2.5 py-1 rounded font-semibold whitespace-nowrap print:border">
+                            Max: {q.markahMax}m
+                          </span>
+                        )}
                       </div>
 
                       {/* FORMAT 1: OBJEKTIF */}
@@ -649,7 +774,7 @@ export default function DashboardPage() {
                             <textarea
                               rows={3}
                               disabled={isClosed}
-                              placeholder="Sertakan penjelasan lanjut inisiatif / inovasi..."
+                              placeholder="Sertakan penjelasan lanjut..."
                               value={jawapan[q.id]?.huraian || ''}
                               onChange={(e) => handleKombinasiChange(q.id, 'huraian', e.target.value)}
                               className="w-full p-3 rounded-lg border border-slate-300 text-sm bg-white disabled:bg-slate-100"
@@ -777,7 +902,9 @@ export default function DashboardPage() {
                       <div key={q.id || idx} className="p-4 bg-slate-50 rounded-lg border text-xs space-y-3">
                         <div className="font-semibold text-slate-900 text-sm flex justify-between">
                           <span>{idx + 1}. {q.text}</span>
-                          <span className="text-xs text-blue-700 bg-blue-50 px-2 py-0.5 rounded font-bold">Max: {q.markahMax}m</span>
+                          {selectedSub.borang === 'Audit Arahan Amalan' && (
+                            <span className="text-xs text-blue-700 bg-blue-50 px-2 py-0.5 rounded font-bold">Max: {q.markahMax}m</span>
+                          )}
                         </div>
                         <div className="p-3 bg-white border border-slate-200 rounded text-slate-800">
                           <span className="font-bold text-slate-500 block mb-1">Jawapan Dihantar Oditee:</span>
@@ -785,17 +912,19 @@ export default function DashboardPage() {
                             {formattedAnswer !== 'Tiada Jawapan' ? formattedAnswer : <em className="text-slate-400 font-normal">Tiada Jawapan</em>}
                           </div>
                         </div>
-                        <div className="flex items-center gap-3 pt-1">
-                          <label className="font-semibold text-slate-700">Markah Dinilai Oditer (0 - {q.markahMax}):</label>
-                          <input
-                            type="number"
-                            max={q.markahMax}
-                            min={0}
-                            value={markahInput[q.id] ?? 0}
-                            onChange={(e) => setMarkahInput({ ...markahInput, [q.id]: Number(e.target.value) })}
-                            className="w-24 p-2 border rounded text-center font-bold text-sm bg-white text-blue-700"
-                          />
-                        </div>
+                        {selectedSub.borang === 'Audit Arahan Amalan' && (
+                          <div className="flex items-center gap-3 pt-1">
+                            <label className="font-semibold text-slate-700">Markah Dinilai Oditer (0 - {q.markahMax}):</label>
+                            <input
+                              type="number"
+                              max={q.markahMax}
+                              min={0}
+                              value={markahInput[q.id] ?? 0}
+                              onChange={(e) => setMarkahInput({ ...markahInput, [q.id]: Number(e.target.value) })}
+                              className="w-24 p-2 border rounded text-center font-bold text-sm bg-white text-blue-700"
+                            />
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -813,9 +942,13 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="flex justify-between items-center border-t pt-4">
-                  <div className="text-sm font-bold text-slate-900">
-                    Jumlah Markah: <span className="text-blue-700 text-base">{Object.values(markahInput).reduce((a, b) => Number(a) + Number(b), 0)}</span> / {oditerSoalanList.reduce((a, b) => a + Number(b.markahMax), 0)}
-                  </div>
+                  {selectedSub.borang === 'Audit Arahan Amalan' ? (
+                    <div className="text-sm font-bold text-slate-900">
+                      Jumlah Markah: <span className="text-blue-700 text-base">{Object.values(markahInput).reduce((a, b) => Number(a) + Number(b), 0)}</span> / {oditerSoalanList.reduce((a, b) => a + Number(b.markahMax), 0)}
+                    </div>
+                  ) : (
+                    <div></div>
+                  )}
                   <div className="flex gap-2">
                     <button onClick={() => setSelectedSub(null)} className="px-4 py-2 bg-slate-200 rounded text-xs font-semibold text-slate-700">Batal</button>
                     <button onClick={handleSavePenilaian} disabled={submitting} className="px-5 py-2 bg-emerald-600 text-white rounded text-xs font-semibold hover:bg-emerald-700">
