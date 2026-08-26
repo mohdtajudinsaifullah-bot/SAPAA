@@ -1,6 +1,6 @@
 import { SignInButton, SignedIn, SignedOut, UserButton } from '@clerk/nextjs';
 import Link from 'next/link';
-import { ShieldCheck, ArrowRight, Lock, CheckCircle2, Calendar, CheckSquare, FileText } from 'lucide-react';
+import { ShieldCheck, ArrowRight, Lock, CheckCircle2, Calendar, CheckSquare } from 'lucide-react';
 
 async function getHomeData() {
   try {
@@ -8,9 +8,13 @@ async function getHomeData() {
       fetch(`${process.env.NEXT_PUBLIC_GAS_URL}?action=getSettings`, { cache: 'no-store' }),
       fetch(`${process.env.NEXT_PUBLIC_GAS_URL}?action=getJadualPemantauan`, { cache: 'no-store' })
     ]);
+    
     const settings = await resSettings.json();
     const pemantauan = await resPemantauan.json();
-    return { settings, pemantauan };
+    return { 
+      settings: settings || { banners: [], statusPenyertaan: 'BUKA', footerText: '@2026, DIY Audit Arahan Amalan JKSM' }, 
+      pemantauan: pemantauan || { jadual: [], submitted: [] } 
+    };
   } catch (e) {
     return {
       settings: { banners: [], statusPenyertaan: 'BUKA', footerText: '@2026, DIY Audit Arahan Amalan JKSM' },
@@ -21,11 +25,14 @@ async function getHomeData() {
 
 export default async function HomePage() {
   const { settings, pemantauan } = await getHomeData();
-  const isOpen = settings.statusPenyertaan === 'BUKA';
+  const isOpen = settings?.statusPenyertaan === 'BUKA';
+  const banners = Array.isArray(settings?.banners) ? settings.banners : [];
+  const jadualList = Array.isArray(pemantauan?.jadual) ? pemantauan.jadual : [];
+  const submittedList = Array.isArray(pemantauan?.submitted) ? pemantauan.submitted : [];
 
   return (
     <div className="flex-1 flex flex-col justify-between min-h-screen bg-slate-50">
-      {/* 1. Header Navigation Bar */}
+      {/* Header */}
       <header className="bg-white/90 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -37,7 +44,7 @@ export default async function HomePage() {
 
           <div className="flex items-center gap-4">
             <nav className="flex items-center gap-2 bg-slate-100 p-1 rounded-lg text-xs font-semibold">
-              <span className="px-3 py-1.5 bg-white shadow-sm text-blue-700 rounded-md">1. Home (Umum)</span>
+              <span className="px-3 py-1.5 bg-white shadow-sm text-blue-700 rounded-md">1. Home</span>
               <Link href="/dashboard" className="px-3 py-1.5 text-slate-600 hover:text-slate-900">2. Dashboard</Link>
             </nav>
 
@@ -55,25 +62,24 @@ export default async function HomePage() {
         </div>
       </header>
 
-      {/* 2. Dynamic Banner Header (Support GIF, PNG, JPEG & Multi-image) */}
-      {settings.banners && settings.banners.length > 0 && (
+      {/* Banner Carousel */}
+      {banners.length > 0 && (
         <div className="w-full bg-slate-900 overflow-hidden border-b border-slate-200">
-          <div className="max-w-7xl mx-auto h-52 md:h-72 relative flex items-center justify-center overflow-x-auto gap-2 p-2 scrollbar-none">
-            {settings.banners.map((url: string, idx: number) => (
+          <div className="max-w-7xl mx-auto h-52 md:h-64 relative flex items-center justify-center overflow-x-auto gap-2 p-2">
+            {banners.map((url: string, idx: number) => (
               <img
                 key={idx}
                 src={url}
-                alt={`Banner Header ${idx + 1}`}
-                className="h-full object-cover rounded-lg shadow-md flex-shrink-0 min-w-[300px] max-w-full"
+                alt={`Banner ${idx + 1}`}
+                className="h-full object-cover rounded-lg shadow-md min-w-[300px]"
               />
             ))}
           </div>
         </div>
       )}
 
-      {/* 3. Main Content Area */}
+      {/* Hero Section */}
       <main className="max-w-6xl mx-auto px-4 py-8 flex-1 w-full space-y-8">
-        {/* Status Badge & Hero */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 md:p-8">
           <div className="flex items-center justify-between mb-4 pb-4 border-b border-slate-100">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
@@ -115,9 +121,8 @@ export default async function HomePage() {
           </div>
         </div>
 
-        {/* 4. Jadual Pemantauan & Status Penyerahan Daerah */}
+        {/* Jadual & Status Penyerahan */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Table 1: Jadual Pemantauan Audit */}
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="p-4 bg-slate-900 text-white font-semibold text-xs flex items-center gap-2">
               <Calendar className="w-4 h-4 text-blue-400" /> Jadual Pemantauan Audit Syariah
@@ -127,15 +132,15 @@ export default async function HomePage() {
                 <thead className="bg-slate-100 border-b font-bold text-slate-700">
                   <tr>
                     <th className="p-3">Negeri / Daerah</th>
-                    <th className="p-3">Auditer Bertugas</th>
+                    <th className="p-3">Auditer</th>
                     <th className="p-3">Tarikh Audit</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {pemantauan.jadual.length === 0 ? (
+                  {jadualList.length === 0 ? (
                     <tr><td colSpan={3} className="p-4 text-center text-slate-400">Tiada maklumat jadual.</td></tr>
                   ) : (
-                    pemantauan.jadual.map((j: any, i: number) => (
+                    jadualList.map((j: any, i: number) => (
                       <tr key={i} className="hover:bg-slate-50">
                         <td className="p-3 font-semibold text-slate-900">{j.daerah}, {j.negeri}</td>
                         <td className="p-3 text-slate-600">{j.oditer || 'Akan Ditentukan'}</td>
@@ -148,10 +153,9 @@ export default async function HomePage() {
             </div>
           </div>
 
-          {/* Table 2: Daerah yang DAH SUBMIT Jawapan */}
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="p-4 bg-slate-900 text-white font-semibold text-xs flex items-center gap-2">
-              <CheckSquare className="w-4 h-4 text-emerald-400" /> Status Penyerahan Daerah (Telah Hantar)
+              <CheckSquare className="w-4 h-4 text-emerald-400" /> Status Penyerahan Daerah
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
@@ -163,10 +167,10 @@ export default async function HomePage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {pemantauan.submitted.length === 0 ? (
+                  {submittedList.length === 0 ? (
                     <tr><td colSpan={3} className="p-4 text-center text-slate-400">Belum ada penyerahan lagi.</td></tr>
                   ) : (
-                    pemantauan.submitted.map((s: any, i: number) => (
+                    submittedList.map((s: any, i: number) => (
                       <tr key={i} className="hover:bg-slate-50">
                         <td className="p-3 font-semibold text-slate-900">{s.daerah}, {s.negeri}</td>
                         <td className="p-3 text-slate-600">{s.tarikhSubmit}</td>
@@ -185,9 +189,8 @@ export default async function HomePage() {
         </div>
       </main>
 
-      {/* Footer */}
       <footer className="bg-slate-900 text-slate-400 py-4 border-t border-slate-800 text-center text-xs">
-        {settings.footerText || "@2026, DIY Audit Arahan Amalan JKSM"}
+        {settings?.footerText || "@2026, DIY Audit Arahan Amalan JKSM"}
       </footer>
     </div>
   );
