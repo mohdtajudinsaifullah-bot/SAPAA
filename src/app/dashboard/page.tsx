@@ -326,8 +326,8 @@ export default function DashboardPage() {
           </div>
           <div className="flex items-center gap-3">
             <nav className="flex items-center gap-2 bg-slate-800 p-1 rounded-lg text-xs font-semibold">
-              <Link href="/" className="px-3 py-1 text-slate-300 hover:text-white">1. Home</Link>
-              <span className="px-3 py-1 bg-blue-600 text-white rounded-md">2. Dashboard</span>
+              <Link href="/" className="px-3 py-1 text-slate-300 hover:text-white">Home</Link>
+              <span className="px-3 py-1 bg-blue-600 text-white rounded-md">Dashboard</span>
             </nav>
             <UserButton />
           </div>

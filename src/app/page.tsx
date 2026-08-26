@@ -44,8 +44,8 @@ export default async function HomePage() {
 
           <div className="flex items-center gap-4">
             <nav className="flex items-center gap-2 bg-slate-100 p-1 rounded-lg text-xs font-semibold">
-              <span className="px-3 py-1.5 bg-white shadow-sm text-blue-700 rounded-md">1. Home</span>
-              <Link href="/dashboard" className="px-3 py-1.5 text-slate-600 hover:text-slate-900">2. Dashboard</Link>
+              <span className="px-3 py-1.5 bg-white shadow-sm text-blue-700 rounded-md">Home</span>
+              <Link href="/dashboard" className="px-3 py-1.5 text-slate-600 hover:text-slate-900">Dashboard</Link>
             </nav>
 
             <SignedOut>
