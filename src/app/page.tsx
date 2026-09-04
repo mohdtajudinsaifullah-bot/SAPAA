@@ -1,30 +1,52 @@
+'use client';
+
+import { useState, useEffect } from 'react';
 import { SignInButton, SignedIn, SignedOut, UserButton } from '@clerk/nextjs';
 import Link from 'next/link';
 import { ShieldCheck, ArrowRight, Lock, CheckCircle2, Calendar, CheckSquare } from 'lucide-react';
 
-async function getHomeData() {
-  try {
-    const [resSettings, resPemantauan] = await Promise.all([
-      fetch(`${process.env.NEXT_PUBLIC_GAS_URL}?action=getSettings`, { cache: 'no-store' }),
-      fetch(`${process.env.NEXT_PUBLIC_GAS_URL}?action=getJadualPemantauan`, { cache: 'no-store' })
-    ]);
-    
-    const settings = await resSettings.json();
-    const pemantauan = await resPemantauan.json();
-    return { 
-      settings: settings || { banners: [], statusPenyertaan: 'BUKA', footerText: '@2026, DIY Audit Arahan Amalan JKSM' }, 
-      pemantauan: pemantauan || { jadual: [], submitted: [] } 
-    };
-  } catch (e) {
-    return {
-      settings: { banners: [], statusPenyertaan: 'BUKA', footerText: '@2026, DIY Audit Arahan Amalan JKSM' },
-      pemantauan: { jadual: [], submitted: [] }
-    };
-  }
-}
+export default function HomePage() {
+  const [settings, setSettings] = useState<any>({
+    banners: [],
+    statusPenyertaan: 'BUKA',
+    footerText: '@2026, DIY Audit Arahan Amalan JKSM',
+    notis: ''
+  });
+  const [pemantauan, setPemantauan] = useState<any>({
+    jadual: [],
+    submitted: []
+  });
+  const [loading, setLoading] = useState<boolean>(true);
 
-export default async function HomePage() {
-  const { settings, pemantauan } = await getHomeData();
+  const gasUrl = process.env.NEXT_PUBLIC_GAS_URL;
+
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!gasUrl) {
+        setLoading(false);
+        return;
+      }
+      try {
+        const [resSettings, resPemantauan] = await Promise.all([
+          fetch(`${gasUrl}?action=getSettings`),
+          fetch(`${gasUrl}?action=getJadualPemantauan`)
+        ]);
+
+        const dataSet = await resSettings.json();
+        const dataPem = await resPemantauan.json();
+
+        if (dataSet) setSettings(dataSet);
+        if (dataPem) setPemantauan(dataPem);
+      } catch (e) {
+        console.error('Ralat memuatkan data homepage:', e);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [gasUrl]);
+
   const isOpen = settings?.statusPenyertaan === 'BUKA';
   const banners = Array.isArray(settings?.banners) ? settings.banners : [];
   const jadualList = Array.isArray(pemantauan?.jadual) ? pemantauan.jadual : [];
@@ -32,7 +54,7 @@ export default async function HomePage() {
 
   return (
     <div className="flex-1 flex flex-col justify-between min-h-screen bg-slate-50">
-      {/* Header */}
+      {/* Header Navigation */}
       <header className="bg-white/90 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -71,6 +93,7 @@ export default async function HomePage() {
                 key={idx}
                 src={url}
                 alt={`Banner ${idx + 1}`}
+                referrerPolicy="no-referrer"
                 className="h-full object-cover rounded-lg shadow-md min-w-[300px]"
               />
             ))}
