@@ -65,12 +65,12 @@ export default function HomePage() {
             </nav>
 
             <SignedIn>
-              <UserButton />
+              <UserButton afterSignOutUrl="/" />
             </SignedIn>
 
             <SignedOut>
-              <SignInButton mode="modal">
-                <button className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-medium text-xs transition shadow-sm flex items-center gap-1.5">
+              <SignInButton mode="modal" forceRedirectUrl="/dashboard">
+                <button className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-medium text-xs transition shadow-sm flex items-center gap-1.5 cursor-pointer">
                   Log Masuk <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               </SignInButton>

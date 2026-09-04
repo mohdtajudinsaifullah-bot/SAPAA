@@ -1,12 +1,9 @@
 import { ClerkProvider } from '@clerk/nextjs';
-import { Inter } from 'next/font/google';
 import './globals.css';
 
-const inter = Inter({ subsets: ['latin'] });
-
 export const metadata = {
-  title: 'DIY Audit Arahan Amalan JKSM',
-  description: 'Sistem Audit DIY Arahan Amalan Jabatan Kehakiman Syariah Malaysia',
+  title: 'DIY SAPAA JKSM',
+  description: 'Sistem Audit Arahan Amalan JKSM',
 };
 
 export default function RootLayout({
@@ -14,10 +11,12 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+
   return (
-    <ClerkProvider>
+    <ClerkProvider publishableKey={publishableKey}>
       <html lang="ms">
-        <body className={`${inter.className} bg-slate-50 text-slate-800 antialiased min-h-screen flex flex-col`}>
+        <body className="antialiased min-h-screen flex flex-col bg-slate-50">
           {children}
         </body>
       </html>
