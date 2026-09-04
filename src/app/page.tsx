@@ -65,7 +65,7 @@ export default function HomePage() {
             </nav>
 
             <SignedIn>
-              <UserButton afterSignOutUrl="/" />
+              <UserButton />
             </SignedIn>
 
             <SignedOut>
