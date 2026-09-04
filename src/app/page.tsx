@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { SignInButton, SignedIn, SignedOut, UserButton } from '@clerk/nextjs';
+import { SignInButton, SignedIn, SignedOut, UserButton, useUser } from '@clerk/nextjs';
 import Link from 'next/link';
 import { ShieldCheck, ArrowRight, Lock, CheckCircle2, Calendar, CheckSquare } from 'lucide-react';
 
 export default function HomePage() {
+  const { isLoaded, isSignedIn } = useUser();
   const [settings, setSettings] = useState<any>({
     banners: [],
     statusPenyertaan: 'BUKA',
@@ -16,16 +17,12 @@ export default function HomePage() {
     jadual: [],
     submitted: []
   });
-  const [loading, setLoading] = useState<boolean>(true);
 
-  const gasUrl = process.env.NEXT_PUBLIC_GAS_URL;
+  // Hardcode Fallback URL supaya tak meledak kalau .env Vercel terlepas read
+  const gasUrl = process.env.NEXT_PUBLIC_GAS_URL || 'https://script.google.com/macros/s/AKfycbz3Ap84vHW7qbAey1hz4i6mBfiN19Lt6b4HOrQRg5_Im-0hHHwEKI68u7AEveI5KUsp/exec'; 
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!gasUrl) {
-        setLoading(false);
-        return;
-      }
       try {
         const [resSettings, resPemantauan] = await Promise.all([
           fetch(`${gasUrl}?action=getSettings`),
@@ -39,8 +36,6 @@ export default function HomePage() {
         if (dataPem) setPemantauan(dataPem);
       } catch (e) {
         console.error('Ralat memuatkan data homepage:', e);
-      } finally {
-        setLoading(false);
       }
     };
 
@@ -70,16 +65,17 @@ export default function HomePage() {
               <Link href="/dashboard" className="px-3 py-1.5 text-slate-600 hover:text-slate-900">Dashboard</Link>
             </nav>
 
-            <SignedOut>
+            {!isLoaded ? (
+              <div className="w-20 h-8 bg-slate-200 animate-pulse rounded-lg"></div>
+            ) : isSignedIn ? (
+              <UserButton afterSignOutUrl="/" />
+            ) : (
               <SignInButton mode="modal">
                 <button className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-medium text-xs transition shadow-sm flex items-center gap-1.5">
                   Log Masuk <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               </SignInButton>
-            </SignedOut>
-            <SignedIn>
-              <UserButton />
-            </SignedIn>
+            )}
           </div>
         </div>
       </header>
@@ -129,18 +125,17 @@ export default function HomePage() {
           </div>
 
           <div className="mt-6 pt-4 border-t flex items-center gap-3">
-            <SignedOut>
+            {isSignedIn ? (
+              <Link href="/dashboard" className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs rounded-lg transition shadow-md">
+                Akses Dashboard Penyertaan
+              </Link>
+            ) : (
               <SignInButton mode="modal">
                 <button className="px-6 py-2.5 bg-blue-700 hover:bg-blue-800 text-white font-medium text-xs rounded-lg transition shadow-md">
                   Mula Isi Borang Audit (Log Masuk)
                 </button>
               </SignInButton>
-            </SignedOut>
-            <SignedIn>
-              <Link href="/dashboard" className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs rounded-lg transition shadow-md">
-                Akses Dashboard Penyertaan
-              </Link>
-            </SignedIn>
+            )}
           </div>
         </div>
 
