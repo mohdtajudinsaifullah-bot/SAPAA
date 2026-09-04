@@ -1,11 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { SignInButton, SignedIn, SignedOut, UserButton } from '@clerk/nextjs';
+import { useClerk, useUser, UserButton } from '@clerk/nextjs';
 import Link from 'next/link';
 import { ShieldCheck, ArrowRight, Lock, CheckCircle2, Calendar, CheckSquare } from 'lucide-react';
 
 export default function HomePage() {
+  const { openSignIn } = useClerk();
+  const { isSignedIn, isLoaded } = useUser();
+
   const [settings, setSettings] = useState<any>({
     banners: [],
     statusPenyertaan: 'BUKA',
@@ -17,11 +20,10 @@ export default function HomePage() {
     submitted: []
   });
 
-  const gasUrl = process.env.NEXT_PUBLIC_GAS_URL;
+  const gasUrl = process.env.NEXT_PUBLIC_GAS_URL || 'https://script.google.com/macros/s/AKfycbz3Ap84vHW7qbAey1hz4i6mBfiN19Lt6b4HOrQRg5_Im-0hHHwEKI68u7AEveI5KUsp/exec';
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!gasUrl) return;
       try {
         const [resSettings, resPemantauan] = await Promise.all([
           fetch(`${gasUrl}?action=getSettings`),
@@ -64,17 +66,17 @@ export default function HomePage() {
               <Link href="/dashboard" className="px-3 py-1.5 text-slate-600 hover:text-slate-900">Dashboard</Link>
             </nav>
 
-            <SignedIn>
+            {/* Butang Log Masuk Dipapar Terus Tanpa Disekat Clerk */}
+            {isLoaded && isSignedIn ? (
               <UserButton afterSignOutUrl="/" />
-            </SignedIn>
-
-            <SignedOut>
-              <SignInButton mode="modal">
-                <button className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-medium text-xs transition shadow-sm flex items-center gap-1.5">
-                  Log Masuk <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-              </SignInButton>
-            </SignedOut>
+            ) : (
+              <button
+                onClick={() => openSignIn()}
+                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-medium text-xs transition shadow-sm flex items-center gap-1.5"
+              >
+                Log Masuk <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         </div>
       </header>
@@ -124,18 +126,18 @@ export default function HomePage() {
           </div>
 
           <div className="mt-6 pt-4 border-t flex items-center gap-3">
-            <SignedIn>
+            {isLoaded && isSignedIn ? (
               <Link href="/dashboard" className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs rounded-lg transition shadow-md">
                 Akses Dashboard Penyertaan
               </Link>
-            </SignedIn>
-            <SignedOut>
-              <SignInButton mode="modal">
-                <button className="px-6 py-2.5 bg-blue-700 hover:bg-blue-800 text-white font-medium text-xs rounded-lg transition shadow-md">
-                  Mula Isi Borang Audit (Log Masuk)
-                </button>
-              </SignInButton>
-            </SignedOut>
+            ) : (
+              <button
+                onClick={() => openSignIn()}
+                className="px-6 py-2.5 bg-blue-700 hover:bg-blue-800 text-white font-medium text-xs rounded-lg transition shadow-md"
+              >
+                Mula Isi Borang Audit (Log Masuk)
+              </button>
+            )}
           </div>
         </div>
 
