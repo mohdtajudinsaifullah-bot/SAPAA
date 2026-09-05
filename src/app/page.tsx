@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { SignedIn, UserButton } from '@clerk/nextjs';
 import Link from 'next/link';
 import { ShieldCheck, ArrowRight, Lock, CheckCircle2, Calendar, CheckSquare } from 'lucide-react';
 
@@ -64,14 +63,9 @@ export default function HomePage() {
               <Link href="/dashboard" className="px-3 py-1.5 text-slate-600 hover:text-slate-900">Dashboard</Link>
             </nav>
 
-            {/* Profile Avatar kalau dah login */}
-            <SignedIn>
-              <UserButton />
-            </SignedIn>
-
-            {/* Butang Log Masuk Padu (Direct Link - Takkan Hilang) */}
+            {/* Butang Log Masuk Haluan Terus Ke /login */}
             <Link 
-              href="/dashboard"
+              href="/login"
               className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-medium text-xs transition shadow-sm flex items-center gap-1.5 cursor-pointer"
             >
               Log Masuk <ArrowRight className="w-3.5 h-3.5" />
@@ -126,7 +120,7 @@ export default function HomePage() {
 
           <div className="mt-6 pt-4 border-t flex items-center gap-3">
             <Link 
-              href="/dashboard"
+              href="/login"
               className="px-6 py-2.5 bg-blue-700 hover:bg-blue-800 text-white font-medium text-xs rounded-lg transition shadow-md cursor-pointer"
             >
               Mula Isi Borang Audit (Log Masuk)
