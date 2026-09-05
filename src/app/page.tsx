@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { SignedIn, SignedOut, SignInButton, UserButton } from '@clerk/nextjs';
+import { SignedIn, UserButton } from '@clerk/nextjs';
 import Link from 'next/link';
 import { ShieldCheck, ArrowRight, Lock, CheckCircle2, Calendar, CheckSquare } from 'lucide-react';
 
@@ -64,19 +64,18 @@ export default function HomePage() {
               <Link href="/dashboard" className="px-3 py-1.5 text-slate-600 hover:text-slate-900">Dashboard</Link>
             </nav>
 
-            {/* Jika pengguna sudah log masuk */}
+            {/* Profile Avatar kalau dah login */}
             <SignedIn>
               <UserButton />
             </SignedIn>
 
-            {/* Jika pengguna belum log masuk - Paksa Modal Pop-Up */}
-            <SignedOut>
-              <SignInButton mode="modal" forceRedirectUrl="/dashboard">
-                <button className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-medium text-xs transition shadow-sm flex items-center gap-1.5 cursor-pointer">
-                  Log Masuk <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-              </SignInButton>
-            </SignedOut>
+            {/* Butang Log Masuk Padu (Direct Link - Takkan Hilang) */}
+            <Link 
+              href="/dashboard"
+              className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-medium text-xs transition shadow-sm flex items-center gap-1.5 cursor-pointer"
+            >
+              Log Masuk <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
           </div>
         </div>
       </header>
@@ -126,21 +125,12 @@ export default function HomePage() {
           </div>
 
           <div className="mt-6 pt-4 border-t flex items-center gap-3">
-            <SignedIn>
-              <Link 
-                href="/dashboard"
-                className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs rounded-lg transition shadow-md"
-              >
-                Akses Dashboard Penyertaan
-              </Link>
-            </SignedIn>
-            <SignedOut>
-              <SignInButton mode="modal" forceRedirectUrl="/dashboard">
-                <button className="px-6 py-2.5 bg-blue-700 hover:bg-blue-800 text-white font-medium text-xs rounded-lg transition shadow-md cursor-pointer">
-                  Mula Isi Borang Audit (Log Masuk)
-                </button>
-              </SignInButton>
-            </SignedOut>
+            <Link 
+              href="/dashboard"
+              className="px-6 py-2.5 bg-blue-700 hover:bg-blue-800 text-white font-medium text-xs rounded-lg transition shadow-md cursor-pointer"
+            >
+              Mula Isi Borang Audit (Log Masuk)
+            </Link>
           </div>
         </div>
 
