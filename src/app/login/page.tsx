@@ -21,21 +21,34 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!gasUrl) {
+      alert('Ralat: URL Google Apps Script (NEXT_PUBLIC_GAS_URL) tidak dijumpai dalam tetapan Vercel.');
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const res = await fetch(gasUrl!, {
+      const res = await fetch(gasUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'text/plain' },
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({
           action: isRegister ? 'register' : 'login',
-          ...form
+          email: form.email,
+          password: form.password,
+          nama: form.nama,
+          noTel: form.no_telefon,
+          no_telefon: form.no_telefon,
+          hierarki: form.hierarki,
+          negeri: form.negeri,
+          daerah: form.daerah
         })
       });
 
       const data = await res.json();
 
-      if (data.success) {
+      if (data && data.success) {
         if (!isRegister) {
           // Simpan sesi log masuk ke localStorage
           localStorage.setItem('user_session', JSON.stringify(data.user));
@@ -46,10 +59,11 @@ export default function LoginPage() {
           setIsRegister(false);
         }
       } else {
-        alert(data.message);
+        alert(data?.message || 'Gagal memproses permintaan. Sila semak emel/kata laluan.');
       }
-    } catch (err) {
-      alert('Ralat sistem, sila cuba lagi.');
+    } catch (err: any) {
+      console.error(err);
+      alert('Ralat sambungan rangkaian ke Google Sheets. Sila cuba lagi.');
     } finally {
       setLoading(false);
     }
@@ -68,7 +82,8 @@ export default function LoginPage() {
             <input
               type="email"
               required
-              className="w-full p-2.5 border rounded-lg mt-1"
+              placeholder="nama@esyariah.gov.my"
+              className="w-full p-2.5 border rounded-lg mt-1 text-sm bg-slate-50"
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
             />
@@ -79,7 +94,8 @@ export default function LoginPage() {
             <input
               type="password"
               required
-              className="w-full p-2.5 border rounded-lg mt-1"
+              placeholder="••••••••"
+              className="w-full p-2.5 border rounded-lg mt-1 text-sm bg-slate-50"
               value={form.password}
               onChange={(e) => setForm({ ...form, password: e.target.value })}
             />
@@ -92,28 +108,45 @@ export default function LoginPage() {
                 <input
                   type="text"
                   required
-                  className="w-full p-2.5 border rounded-lg mt-1"
+                  placeholder="Nama Penuh Pegawai"
+                  className="w-full p-2.5 border rounded-lg mt-1 text-sm bg-slate-50"
                   value={form.nama}
                   onChange={(e) => setForm({ ...form, nama: e.target.value })}
                 />
               </div>
+
               <div>
                 <label className="font-semibold text-slate-700">No. Telefon</label>
                 <input
                   type="text"
                   required
-                  className="w-full p-2.5 border rounded-lg mt-1"
+                  placeholder="012-3456789"
+                  className="w-full p-2.5 border rounded-lg mt-1 text-sm bg-slate-50"
                   value={form.no_telefon}
                   onChange={(e) => setForm({ ...form, no_telefon: e.target.value })}
                 />
               </div>
+
+              <div>
+                <label className="font-semibold text-slate-700">Hierarki Mahkamah</label>
+                <select
+                  value={form.hierarki}
+                  onChange={(e) => setForm({ ...form, hierarki: e.target.value })}
+                  className="w-full p-2.5 border rounded-lg mt-1 text-sm font-medium bg-slate-50"
+                >
+                  <option value="MRS">MRS (Mahkamah Rendah Syariah)</option>
+                  <option value="MTS">MTS (Mahkamah Tinggi Syariah)</option>
+                </select>
+              </div>
+
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="font-semibold text-slate-700">Negeri</label>
                   <input
                     type="text"
                     required
-                    className="w-full p-2.5 border rounded-lg mt-1"
+                    placeholder="Contoh: SELANGOR"
+                    className="w-full p-2.5 border rounded-lg mt-1 text-sm bg-slate-50"
                     value={form.negeri}
                     onChange={(e) => setForm({ ...form, negeri: e.target.value })}
                   />
@@ -123,7 +156,8 @@ export default function LoginPage() {
                   <input
                     type="text"
                     required
-                    className="w-full p-2.5 border rounded-lg mt-1"
+                    placeholder="Contoh: BANGI"
+                    className="w-full p-2.5 border rounded-lg mt-1 text-sm bg-slate-50"
                     value={form.daerah}
                     onChange={(e) => setForm({ ...form, daerah: e.target.value })}
                   />
@@ -135,7 +169,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 bg-blue-700 text-white font-bold rounded-lg hover:bg-blue-800 transition"
+            className="w-full py-3 bg-blue-700 text-white font-bold rounded-lg hover:bg-blue-800 transition cursor-pointer"
           >
             {loading ? 'Sila tunggu...' : isRegister ? 'Daftar' : 'Log Masuk'}
           </button>
@@ -145,7 +179,7 @@ export default function LoginPage() {
           <button
             type="button"
             onClick={() => setIsRegister(!isRegister)}
-            className="text-blue-700 font-semibold underline"
+            className="text-blue-700 font-semibold underline cursor-pointer"
           >
             {isRegister ? 'Sudah ada akaun? Log Masuk' : 'Belum ada akaun? Daftar Sini'}
           </button>
