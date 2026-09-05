@@ -1,9 +1,12 @@
-import { ClerkProvider } from '@clerk/nextjs';
+import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
 import './globals.css';
 
-export const metadata = {
-  title: 'DIY SAPAA JKSM',
-  description: 'Sistem Audit Arahan Amalan JKSM',
+const inter = Inter({ subsets: ['latin'] });
+
+export const metadata: Metadata = {
+  title: 'Sistem DIY Audit Arahan Amalan JKSM',
+  description: 'Platform rasmi penilaian dan pengauditan kendiri Arahan Amalan untuk Mahkamah Syariah Daerah seluruh Malaysia.',
 };
 
 export default function RootLayout({
@@ -11,15 +14,11 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
-
   return (
-    <ClerkProvider publishableKey={publishableKey}>
-      <html lang="ms">
-        <body className="antialiased min-h-screen flex flex-col bg-slate-50">
-          {children}
-        </body>
-      </html>
-    </ClerkProvider>
+    <html lang="ms">
+      <body className={inter.className}>
+        {children}
+      </body>
+    </html>
   );
 }
