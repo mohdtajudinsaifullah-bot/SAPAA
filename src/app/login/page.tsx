@@ -73,7 +73,7 @@ export default function LoginPage() {
     <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
       <div className="bg-white p-8 rounded-2xl shadow-md max-w-md w-full space-y-6">
         <h2 className="text-2xl font-bold text-slate-900 text-center">
-          {isRegister ? 'Daftar Akaun Baharu' : 'Log Masuk DIY SAPAA'}
+          {isRegister ? 'Daftar Akaun Baharu' : 'Log Masuk Ke SAPAA JKSM'}
         </h2>
 
         <form onSubmit={handleSubmit} className="space-y-4 text-xs">

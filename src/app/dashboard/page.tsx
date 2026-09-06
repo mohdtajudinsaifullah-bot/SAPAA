@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ShieldCheck, CheckCircle, Edit3, AlertCircle, Printer, PlusCircle, ToggleLeft, ToggleRight, Save, Trash2, Edit, FileCheck2, CheckSquare, LogOut } from 'lucide-react';
+import { ShieldCheck, CheckCircle, Edit3, AlertCircle, Printer, PlusCircle, ToggleLeft, ToggleRight, Save, Trash2, Edit, FileCheck2, CheckSquare, LogOut, Key } from 'lucide-react';
 
 interface Soalan {
   id: string;
@@ -21,13 +21,14 @@ export default function DashboardPage() {
   const [role, setRole] = useState<'Oditee' | 'Oditer' | 'Admin'>('Oditee');
   const [selectedBorang, setSelectedBorang] = useState<string>('Audit Arahan Amalan');
 
-  // Profil Oditee
+  // Profil Oditee (Termasuk Password Baharu - ISU 2)
   const [profil, setProfil] = useState({
     nama: '',
     noTel: '',
     hierarki: 'MRS',
-    negeri: 'Selangor',
-    daerah: 'Petaling'
+    negeri: 'SELANGOR',
+    daerah: 'BANGI',
+    password: ''
   });
 
   const [settings, setSettings] = useState({ statusPenyertaan: 'BUKA', footerText: '@2026, DIY Audit Arahan Amalan JKSM' });
@@ -57,12 +58,14 @@ export default function DashboardPage() {
   const [tickedInput, setTickedInput] = useState<Record<string, boolean>>({});
   const [ulasanOditer, setUlasanOditer] = useState('');
   
-  // State Laporan Pemantauan
+  // State Laporan Pemantauan (ISU 3 & ISU 4: Tarikh Audit Terbuka & Nama Wakil Jabatan Teks Percuma)
+  const [tarikhAuditOpen, setTarikhAuditOpen] = useState<string>(new Date().toISOString().split('T')[0]);
   const [tarikhPemantauan, setTarikhPemantauan] = useState<string>(new Date().toISOString().split('T')[0]);
   const [namaKetuaPemantau, setNamaKetuaPemantau] = useState<string>('');
+  const [namaWakilJabatan, setNamaWakilJabatan] = useState<string>('');
   const [selectedMultiDaerah, setSelectedMultiDaerah] = useState<string[]>([]);
   
-  // View Tab: 'semakan' | 'borang_daerah' | 'laporan_gabungan'
+  // View Tab
   const [viewTab, setViewTab] = useState<'semakan' | 'borang_daerah' | 'laporan_gabungan'>('semakan');
 
   const [loading, setLoading] = useState(true);
@@ -72,7 +75,6 @@ export default function DashboardPage() {
   const gasUrl = process.env.NEXT_PUBLIC_GAS_URL;
   const isAuditForm = selectedBorang === 'Audit Arahan Amalan';
 
-  // Semak Sesi Log Masuk
   useEffect(() => {
     const session = localStorage.getItem('user_session');
     if (!session) {
@@ -83,10 +85,11 @@ export default function DashboardPage() {
     setCurrentUser(userObj);
     setProfil({
       nama: userObj.nama || '',
-      noTel: userObj.noTel || '',
+      noTel: userObj.noTel || userObj.no_telefon || '',
       hierarki: userObj.hierarki || 'MRS',
-      negeri: userObj.negeri || 'Selangor',
-      daerah: userObj.daerah || 'Petaling'
+      negeri: userObj.negeri || 'SELANGOR',
+      daerah: userObj.daerah || 'BANGI',
+      password: ''
     });
     setNamaKetuaPemantau(userObj.nama || '');
   }, [router]);
@@ -109,7 +112,16 @@ export default function DashboardPage() {
 
       let currentRole = 'Oditee';
       if (dataProf) {
-        if (dataProf.nama) setProfil(prev => ({ ...prev, ...dataProf }));
+        if (dataProf.nama) {
+          setProfil(prev => ({ 
+            ...prev, 
+            nama: dataProf.nama,
+            noTel: dataProf.noTel || dataProf.no_telefon || prev.noTel,
+            hierarki: dataProf.hierarki || prev.hierarki,
+            negeri: dataProf.negeri || prev.negeri,
+            daerah: dataProf.daerah || prev.daerah
+          }));
+        }
         if (dataProf.role) {
           currentRole = dataProf.role;
           setRole(dataProf.role as any);
@@ -166,6 +178,9 @@ export default function DashboardPage() {
     setPenemuanBuktiInput(sub.penilaian?.penemuanBuktiJSON || {});
     setTickedInput(sub.penilaian?.tickedJSON || {});
     setUlasanOditer(sub.penilaian?.ulasan || '');
+    if (sub.penilaian?.tarikh) {
+      setTarikhAuditOpen(new Date(sub.penilaian.tarikh).toISOString().split('T')[0]);
+    }
     setSelectedMultiDaerah([sub.daerah]);
     setViewTab('semakan');
 
@@ -178,32 +193,47 @@ export default function DashboardPage() {
     }
   };
 
+  // ISU 2: Simpan Kemaskini Profil & Kata Laluan
   const handleSaveProfil = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
     setStatusMsg(null);
 
     try {
-      await fetch(gasUrl!, {
+      const payload: any = {
+        action: 'updateProfil',
+        email: currentUser?.email,
+        nama: profil.nama,
+        noTel: profil.noTel,
+        no_telefon: profil.noTel,
+        hierarki: profil.hierarki,
+        negeri: profil.negeri,
+        daerah: profil.daerah
+      };
+
+      if (profil.password) {
+        payload.password = profil.password;
+      }
+
+      const res = await fetch(gasUrl!, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({
-          action: 'updateProfil',
-          email: currentUser?.email,
-          nama: profil.nama,
-          noTel: profil.noTel,
-          hierarki: profil.hierarki,
-          negeri: profil.negeri,
-          daerah: profil.daerah
-        })
+        body: JSON.stringify(payload)
       });
 
-      // Kemaskini sesi tempatan
-      const updatedUser = { ...currentUser, ...profil };
-      localStorage.setItem('user_session', JSON.stringify(updatedUser));
+      const resData = await res.json();
 
-      setStatusMsg({ type: 'success', text: 'Profil berjaya dikemaskini!' });
-      loadAllData();
+      if (resData.success) {
+        const updatedUser = { ...currentUser, ...profil };
+        delete updatedUser.password;
+        localStorage.setItem('user_session', JSON.stringify(updatedUser));
+
+        setStatusMsg({ type: 'success', text: 'Profil & Kata Laluan berjaya dikemaskini!' });
+        setProfil(prev => ({ ...prev, password: '' }));
+        loadAllData();
+      } else {
+        setStatusMsg({ type: 'error', text: resData.message || 'Gagal mengemaskini profil.' });
+      }
     } catch (e) {
       setStatusMsg({ type: 'error', text: 'Gagal mengemaskini profil.' });
     } finally {
@@ -300,6 +330,7 @@ export default function DashboardPage() {
     }
   };
 
+  // ISU 5: Simpan Penilaian & Semua Catatan Kekal Dalam Google Sheet
   const handleSavePenilaian = async () => {
     if (!selectedSub) return;
     setSubmitting(true);
@@ -308,7 +339,7 @@ export default function DashboardPage() {
     const maxMark = oditerSoalanList.reduce((a, b) => a + Number(b.markahMax), 0);
 
     try {
-      await fetch(gasUrl!, {
+      const res = await fetch(gasUrl!, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({
@@ -326,8 +357,14 @@ export default function DashboardPage() {
           markahMax: maxMark
         })
       });
-      setStatusMsg({ type: 'success', text: 'Penilaian & Data Pemantauan berjaya disimpan!' });
-      loadAllData();
+
+      const resData = await res.json();
+      if (resData.success) {
+        setStatusMsg({ type: 'success', text: 'Penilaian, Catatan & Status Lampiran 4 berjaya disimpan secara kekal!' });
+        loadAllData();
+      } else {
+        setStatusMsg({ type: 'error', text: 'Gagal menyimpan penilaian.' });
+      }
     } catch (e) {
       setStatusMsg({ type: 'error', text: 'Gagal menyimpan penilaian.' });
     } finally {
@@ -343,6 +380,7 @@ export default function DashboardPage() {
     s => selectedSub && s.negeri === selectedSub.negeri && s.borang === selectedSub.borang
   );
 
+  // ISU 4: Pengumpulan Item Penemuan Yang Di-Tick Mengikut Daerah
   const aggregatedTickedItems = sameStateSubmissions
     .filter(s => selectedMultiDaerah.includes(s.daerah))
     .flatMap(s => {
@@ -397,7 +435,7 @@ export default function DashboardPage() {
             </nav>
             <button
               onClick={handleLogout}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold rounded-lg transition"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold rounded-lg transition cursor-pointer"
             >
               <LogOut className="w-3.5 h-3.5" /> Log Keluar
             </button>
@@ -417,7 +455,7 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Pilihan Jenis Borang Dropdown */}
+        {/* Dropdown Jenis Borang */}
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3 print:hidden">
           <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">PILIH JENIS BORANG:</label>
           <select
@@ -444,7 +482,7 @@ export default function DashboardPage() {
               </div>
               <button
                 onClick={handleToggleStatus}
-                className={`px-5 py-2.5 rounded-lg font-semibold text-sm transition flex items-center gap-2 ${
+                className={`px-5 py-2.5 rounded-lg font-semibold text-sm transition flex items-center gap-2 cursor-pointer ${
                   settings.statusPenyertaan === 'BUKA' ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-rose-600 hover:bg-rose-700 text-white'
                 }`}
               >
@@ -528,12 +566,12 @@ export default function DashboardPage() {
                         setEditingId(null);
                         setNewQ({ text: '', kategori: 'MRS', jenis: 'Objektif', pilihan: 'Ya,Tidak,Sebahagian', markahMax: 10 });
                       }}
-                      className="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-300"
+                      className="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-300 cursor-pointer"
                     >
                       Batal
                     </button>
                   )}
-                  <button type="submit" disabled={submitting} className="px-5 py-2 bg-blue-700 text-white rounded-lg text-sm font-medium hover:bg-blue-800">
+                  <button type="submit" disabled={submitting} className="px-5 py-2 bg-blue-700 text-white rounded-lg text-sm font-medium hover:bg-blue-800 cursor-pointer">
                     {submitting ? 'Menyimpan...' : editingId ? 'Kemaskini Soalan' : 'Tambah Soalan'}
                   </button>
                 </div>
@@ -581,7 +619,7 @@ export default function DashboardPage() {
                               markahMax: q.markahMax
                             });
                           }}
-                          className="px-3 py-1 bg-amber-500 text-white rounded font-medium hover:bg-amber-600 flex items-center gap-1"
+                          className="px-3 py-1 bg-amber-500 text-white rounded font-medium hover:bg-amber-600 flex items-center gap-1 cursor-pointer"
                         >
                           <Edit className="w-3.5 h-3.5" /> Edit
                         </button>
@@ -596,7 +634,7 @@ export default function DashboardPage() {
                               loadAllData();
                             }
                           }}
-                          className="px-3 py-1 bg-rose-600 text-white rounded font-medium hover:bg-rose-700 flex items-center gap-1"
+                          className="px-3 py-1 bg-rose-600 text-white rounded font-medium hover:bg-rose-700 flex items-center gap-1 cursor-pointer"
                         >
                           <Trash2 className="w-3.5 h-3.5" /> Padam
                         </button>
@@ -677,9 +715,24 @@ export default function DashboardPage() {
                     className="w-full mt-1 p-2.5 border rounded-lg bg-slate-50 text-sm"
                   />
                 </div>
+
+                {/* ISU 2: Boleh Kemaskini Kata Laluan */}
+                <div className="md:col-span-3 bg-slate-50 p-3 rounded-lg border border-slate-200 mt-1">
+                  <label className="font-semibold text-slate-800 text-xs flex items-center gap-1.5 mb-1">
+                    <Key className="w-3.5 h-3.5 text-blue-600" /> Kata Laluan Baharu (Biarkan kosong jika tidak mahu tukar):
+                  </label>
+                  <input
+                    type="password"
+                    placeholder="••••••••"
+                    value={profil.password}
+                    onChange={(e) => setProfil({ ...profil, password: e.target.value })}
+                    className="w-full p-2.5 border rounded-lg bg-white text-sm"
+                  />
+                </div>
+
                 <div className="md:col-span-3 flex justify-end">
                   <button type="submit" disabled={submitting} className="px-5 py-2 bg-slate-900 text-white rounded-lg font-medium text-xs flex items-center gap-1.5 cursor-pointer">
-                    <Save className="w-3.5 h-3.5" /> Simpan Profil
+                    <Save className="w-3.5 h-3.5" /> Simpan Profil & Kata Laluan
                   </button>
                 </div>
               </form>
@@ -1057,27 +1110,38 @@ export default function DashboardPage() {
                   </div>
                 )}
 
-                {/* TAB 2: BORANG PEMANTAUAN PEMATUHAN ARAHAN AMALAN DAERAH */}
+                {/* TAB 2: BORANG PEMANTAUAN PEMATUHAN ARAHAN AMALAN DAERAH (ISU 3: Tarikh Audit Open) */}
                 {viewTab === 'borang_daerah' && (
                   <div className="p-6 bg-white space-y-6 text-slate-900 text-xs font-sans print:p-0">
                     <div className="text-center space-y-1 border-b pb-4">
                       <h2 className="font-extrabold text-base tracking-wide uppercase">BORANG PEMANTAUAN PEMATUHAN ARAHAN AMALAN</h2>
                     </div>
 
-                    <div className="space-y-1 text-xs font-semibold max-w-lg">
-                      <div className="grid grid-cols-3">
+                    <div className="space-y-2 text-xs font-semibold max-w-xl">
+                      <div className="grid grid-cols-3 items-center">
                         <span>Nama Auditor</span>
                         <span className="col-span-2">: <strong className="border-b border-slate-900 px-2">{namaKetuaPemantau || '.........................................................'}</strong></span>
                       </div>
-                      <div className="grid grid-cols-3">
+                      <div className="grid grid-cols-3 items-center">
                         <span>Nama Auditee</span>
                         <span className="col-span-2">: <strong className="border-b border-slate-900 px-2">{selectedSub.nama}</strong></span>
                       </div>
-                      <div className="grid grid-cols-3">
+                      
+                      {/* ISU 3: Tarikh Audit Terbuka / Boleh Kemaskini */}
+                      <div className="grid grid-cols-3 items-center">
                         <span>Tarikh Audit</span>
-                        <span className="col-span-2">: <strong className="border-b border-slate-900 px-2">{new Date(selectedSub.tarikh).toLocaleDateString()}</strong></span>
+                        <div className="col-span-2 flex items-center gap-1">
+                          <span>: </span>
+                          <input
+                            type="date"
+                            value={tarikhAuditOpen}
+                            onChange={(e) => setTarikhAuditOpen(e.target.value)}
+                            className="p-1 border rounded text-xs font-bold bg-slate-50 border-slate-300 print:border-none print:bg-transparent"
+                          />
+                        </div>
                       </div>
-                      <div className="grid grid-cols-3">
+
+                      <div className="grid grid-cols-3 items-center">
                         <span>Lokasi Audit</span>
                         <span className="col-span-2">: <strong className="border-b border-slate-900 px-2">{selectedSub.daerah}, {selectedSub.negeri} ({selectedSub.hierarki})</strong></span>
                       </div>
@@ -1175,7 +1239,7 @@ export default function DashboardPage() {
                       </p>
                     </div>
 
-                    {/* JADUAL HIMPUNAN PENEMUAN YANG DI-TICK */}
+                    {/* JADUAL HIMPUNAN PENEMUAN LAMPIRAN 4 (ISU 4: No 1 Fix) */}
                     <div className="overflow-x-auto">
                       <table className="w-full border-collapse border border-slate-900 text-xs text-left">
                         <thead>
@@ -1212,30 +1276,42 @@ export default function DashboardPage() {
                     <div className="pt-4 space-y-8">
                       <p className="font-semibold">Oleh itu, Ketua Jabatan diminta mengambil perhatian terhadap pematuhan Arahan Amalan berkaitan.</p>
 
+                      {/* TANDATANGAN & WRAP TEXT (ISU 4: No 2 & No 3 Fix) */}
                       <div className="grid grid-cols-2 gap-12 pt-8 text-center">
                         <div className="space-y-3">
                           <p className="font-bold">Tandatangan Ketua Pemantau</p>
                           <div className="pt-8">
                             <p className="border-b border-slate-900 w-56 mx-auto mb-1"></p>
-                            <div className="flex items-center justify-center gap-1">
+                            <div className="flex items-center justify-center gap-1 max-w-xs mx-auto break-words whitespace-normal">
                               <span className="font-semibold">(Nama:</span>
                               <input
                                 type="text"
                                 value={namaKetuaPemantau}
                                 onChange={(e) => setNamaKetuaPemantau(e.target.value)}
                                 placeholder="Taip nama Oditer..."
-                                className="p-0.5 border-b border-dotted font-bold text-center text-xs bg-slate-50 print:bg-transparent print:border-none focus:outline-none"
+                                className="p-0.5 border-b border-dotted font-bold text-center text-xs bg-slate-50 print:bg-transparent print:border-none focus:outline-none w-full break-words"
                               />
                               <span className="font-semibold">)</span>
                             </div>
                           </div>
                         </div>
 
+                        {/* ISU 4: No 3 Nama Ketua Jabatan Free Text + Auto Wrap */}
                         <div className="space-y-3">
                           <p className="font-bold">Tandatangan Ketua Jabatan / Wakil</p>
                           <div className="pt-8">
                             <p className="border-b border-slate-900 w-56 mx-auto mb-1"></p>
-                            <p className="font-semibold">(Nama: ...................................................)</p>
+                            <div className="flex items-center justify-center gap-1 max-w-xs mx-auto break-words whitespace-normal">
+                              <span className="font-semibold">(Nama:</span>
+                              <input
+                                type="text"
+                                value={namaWakilJabatan}
+                                onChange={(e) => setNamaWakilJabatan(e.target.value)}
+                                placeholder="Taip nama Ketua Jabatan/Wakil..."
+                                className="p-0.5 border-b border-dotted font-bold text-center text-xs bg-slate-50 print:bg-transparent print:border-none focus:outline-none w-full break-words"
+                              />
+                              <span className="font-semibold">)</span>
+                            </div>
                             <p className="text-[10px] text-slate-500 mt-1">Cop Jabatan</p>
                           </div>
                         </div>
