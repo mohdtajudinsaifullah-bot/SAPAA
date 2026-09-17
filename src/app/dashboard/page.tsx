@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ShieldCheck, CheckCircle, Edit3, AlertCircle, Printer, PlusCircle, ToggleLeft, ToggleRight, Save, Trash2, Edit, FileCheck2, CheckSquare, LogOut, Key } from 'lucide-react';
+import { ShieldCheck, CheckCircle, Edit3, AlertCircle, Printer, PlusCircle, ToggleLeft, ToggleRight, Save, Trash2, Edit, FileCheck2, CheckSquare, LogOut, Key, Filter } from 'lucide-react';
 
 interface Soalan {
   id: string;
@@ -21,7 +21,7 @@ export default function DashboardPage() {
   const [role, setRole] = useState<'Oditee' | 'Oditer' | 'Admin'>('Oditee');
   const [selectedBorang, setSelectedBorang] = useState<string>('Audit Arahan Amalan');
 
-  // Profil Oditee (Termasuk Password Baharu - ISU 2)
+  // Profil Oditee
   const [profil, setProfil] = useState({
     nama: '',
     noTel: '',
@@ -37,6 +37,9 @@ export default function DashboardPage() {
   const [penilaianOditerForOditee, setPenilaianOditerForOditee] = useState<any>(null);
   const [submissions, setSubmissions] = useState<any[]>([]);
   
+  // State Filter Negeri untuk Admin/Oditer (Isu 1)
+  const [filterNegeri, setFilterNegeri] = useState<string>('SEMUA');
+
   // Admin State
   const [editingId, setEditingId] = useState<string | null>(null);
   const [newQ, setNewQ] = useState({ 
@@ -58,7 +61,11 @@ export default function DashboardPage() {
   const [tickedInput, setTickedInput] = useState<Record<string, boolean>>({});
   const [ulasanOditer, setUlasanOditer] = useState('');
   
-  // State Laporan Pemantauan (ISU 3 & ISU 4: Tarikh Audit Terbuka & Nama Wakil Jabatan Teks Percuma)
+  // State Free Text Lampiran 4 (Isu 2 & Isu 3)
+  const [maklumbalasCadangan, setMaklumbalasCadangan] = useState<string>('');
+  const [catatanTambahanOditer, setCatatanTambahanOditer] = useState<string>('');
+
+  // State Laporan Pemantauan
   const [tarikhAuditOpen, setTarikhAuditOpen] = useState<string>(new Date().toISOString().split('T')[0]);
   const [tarikhPemantauan, setTarikhPemantauan] = useState<string>(new Date().toISOString().split('T')[0]);
   const [namaKetuaPemantau, setNamaKetuaPemantau] = useState<string>('');
@@ -178,6 +185,9 @@ export default function DashboardPage() {
     setPenemuanBuktiInput(sub.penilaian?.penemuanBuktiJSON || {});
     setTickedInput(sub.penilaian?.tickedJSON || {});
     setUlasanOditer(sub.penilaian?.ulasan || '');
+    setMaklumbalasCadangan(sub.penilaian?.maklumbalasCadangan || '');
+    setCatatanTambahanOditer(sub.penilaian?.catatanTambahanOditer || '');
+
     if (sub.penilaian?.tarikh) {
       setTarikhAuditOpen(new Date(sub.penilaian.tarikh).toISOString().split('T')[0]);
     }
@@ -193,7 +203,6 @@ export default function DashboardPage() {
     }
   };
 
-  // ISU 2: Simpan Kemaskini Profil & Kata Laluan
   const handleSaveProfil = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
@@ -330,7 +339,7 @@ export default function DashboardPage() {
     }
   };
 
-  // ISU 5: Simpan Penilaian & Semua Catatan Kekal Dalam Google Sheet
+  // Simpan Penilaian & Semua Free Text Lampiran 4
   const handleSavePenilaian = async () => {
     if (!selectedSub) return;
     setSubmitting(true);
@@ -353,6 +362,8 @@ export default function DashboardPage() {
           penemuanBuktiJSON: penemuanBuktiInput,
           tickedJSON: tickedInput,
           ulasan: ulasanOditer,
+          maklumbalasCadangan: maklumbalasCadangan,
+          catatanTambahanOditer: catatanTambahanOditer,
           jumlahMarkah: totalMark,
           markahMax: maxMark
         })
@@ -360,7 +371,7 @@ export default function DashboardPage() {
 
       const resData = await res.json();
       if (resData.success) {
-        setStatusMsg({ type: 'success', text: 'Penilaian, Catatan & Status Lampiran 4 berjaya disimpan secara kekal!' });
+        setStatusMsg({ type: 'success', text: 'Penilaian, Catatan & Data Lampiran 4 berjaya disimpan secara kekal!' });
         loadAllData();
       } else {
         setStatusMsg({ type: 'error', text: 'Gagal menyimpan penilaian.' });
@@ -376,11 +387,21 @@ export default function DashboardPage() {
     window.print();
   };
 
+  // Senarai unik Negeri untuk Filter (Isu 1)
+  const senaraiNegeriUnik = Array.from(new Set(submissions.map(s => (s.negeri || '').toString().toUpperCase().trim()).filter(Boolean)));
+
+  // Tapis penyerahan mengikut negeri jika ditapis (Isu 1)
+  const filteredSubmissions = submissions.filter(s => {
+    if (filterNegeri === 'SEMUA') return true;
+    return (s.negeri || '').toString().toUpperCase().trim() === filterNegeri;
+  });
+
   const sameStateSubmissions = submissions.filter(
-    s => selectedSub && s.negeri === selectedSub.negeri && s.borang === selectedSub.borang
+    s => selectedSub && 
+    (s.negeri || '').toString().toUpperCase().trim() === (selectedSub.negeri || '').toString().toUpperCase().trim() && 
+    s.borang === selectedSub.borang
   );
 
-  // ISU 4: Pengumpulan Item Penemuan Yang Di-Tick Mengikut Daerah
   const aggregatedTickedItems = sameStateSubmissions
     .filter(s => selectedMultiDaerah.includes(s.daerah))
     .flatMap(s => {
@@ -716,7 +737,6 @@ export default function DashboardPage() {
                   />
                 </div>
 
-                {/* ISU 2: Boleh Kemaskini Kata Laluan */}
                 <div className="md:col-span-3 bg-slate-50 p-3 rounded-lg border border-slate-200 mt-1">
                   <label className="font-semibold text-slate-800 text-xs flex items-center gap-1.5 mb-1">
                     <Key className="w-3.5 h-3.5 text-blue-600" /> Kata Laluan Baharu (Biarkan kosong jika tidak mahu tukar):
@@ -899,12 +919,28 @@ export default function DashboardPage() {
               <p className="text-xs text-slate-500 mt-1">Pilih penyerahan daerah untuk membuat semakan, mencetak borang pemantauan daerah, atau menjana Laporan Pemantauan Gabungan (Lampiran 4).</p>
             </div>
 
-            {/* Jadual Senarai Submisyen Penyerahan */}
+            {/* Jadual Senarai Submisyen Penyerahan & Filter Negeri (ISU 1) */}
             <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm print:hidden">
-              <div className="p-4 bg-slate-900 text-white font-semibold text-sm flex justify-between items-center">
+              <div className="p-4 bg-slate-900 text-white font-semibold text-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                 <span>Senarai Jawapan Dihantar Mengikut Daerah</span>
-                <span className="text-xs bg-slate-800 px-3 py-1 rounded-full">{submissions.length} Penyerahan</span>
+                
+                {/* ISU 1: Dropdown Filter Negeri */}
+                <div className="flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-lg text-xs">
+                  <Filter className="w-3.5 h-3.5 text-blue-400" />
+                  <span className="text-slate-300 font-medium">Tapis Negeri:</span>
+                  <select
+                    value={filterNegeri}
+                    onChange={(e) => setFilterNegeri(e.target.value)}
+                    className="bg-slate-900 text-white border border-slate-700 rounded px-2 py-1 font-bold focus:ring-1 focus:ring-blue-500"
+                  >
+                    <option value="SEMUA">SEMUA NEGERI ({submissions.length})</option>
+                    {senaraiNegeriUnik.map((neg, idx) => (
+                      <option key={idx} value={neg}>{neg}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
+
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead className="bg-slate-100 border-b">
@@ -917,10 +953,10 @@ export default function DashboardPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {submissions.length === 0 ? (
-                      <tr><td colSpan={5} className="p-6 text-center text-slate-500">Tiada penyerahan jawapan daerah lagi.</td></tr>
+                    {filteredSubmissions.length === 0 ? (
+                      <tr><td colSpan={5} className="p-6 text-center text-slate-500">Tiada penyerahan jawapan bagi tapisan ini.</td></tr>
                     ) : (
-                      submissions.map((sub, idx) => (
+                      filteredSubmissions.map((sub, idx) => (
                         <tr key={idx} className="hover:bg-slate-50">
                           <td className="p-3 font-semibold text-slate-900">{sub.daerah}, {sub.negeri}</td>
                           <td className="p-3"><span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded font-bold">{sub.borang || 'Audit Arahan Amalan'}</span></td>
@@ -1110,7 +1146,7 @@ export default function DashboardPage() {
                   </div>
                 )}
 
-                {/* TAB 2: BORANG PEMANTAUAN PEMATUHAN ARAHAN AMALAN DAERAH (ISU 3: Tarikh Audit Open) */}
+                {/* TAB 2: BORANG PEMANTAUAN PEMATUHAN ARAHAN AMALAN DAERAH */}
                 {viewTab === 'borang_daerah' && (
                   <div className="p-6 bg-white space-y-6 text-slate-900 text-xs font-sans print:p-0">
                     <div className="text-center space-y-1 border-b pb-4">
@@ -1127,7 +1163,6 @@ export default function DashboardPage() {
                         <span className="col-span-2">: <strong className="border-b border-slate-900 px-2">{selectedSub.nama}</strong></span>
                       </div>
                       
-                      {/* ISU 3: Tarikh Audit Terbuka / Boleh Kemaskini */}
                       <div className="grid grid-cols-3 items-center">
                         <span>Tarikh Audit</span>
                         <div className="col-span-2 flex items-center gap-1">
@@ -1239,7 +1274,7 @@ export default function DashboardPage() {
                       </p>
                     </div>
 
-                    {/* JADUAL HIMPUNAN PENEMUAN LAMPIRAN 4 (ISU 4: No 1 Fix) */}
+                    {/* JADUAL HIMPUNAN PENEMUAN LAMPIRAN 4 */}
                     <div className="overflow-x-auto">
                       <table className="w-full border-collapse border border-slate-900 text-xs text-left">
                         <thead>
@@ -1273,47 +1308,74 @@ export default function DashboardPage() {
                       </table>
                     </div>
 
-                    <div className="pt-4 space-y-8">
-                      <p className="font-semibold">Oleh itu, Ketua Jabatan diminta mengambil perhatian terhadap pematuhan Arahan Amalan berkaitan.</p>
+                    <div className="pt-2">
+                      <p className="font-semibold mb-4">Oleh itu, Ketua Jabatan diminta mengambil perhatian terhadap pematuhan Arahan Amalan berkaitan.</p>
+                    </div>
 
-                      {/* TANDATANGAN & WRAP TEXT (ISU 4: No 2 & No 3 Fix) */}
-                      <div className="grid grid-cols-2 gap-12 pt-8 text-center">
-                        <div className="space-y-3">
-                          <p className="font-bold">Tandatangan Ketua Pemantau</p>
-                          <div className="pt-8">
-                            <p className="border-b border-slate-900 w-56 mx-auto mb-1"></p>
-                            <div className="flex items-center justify-center gap-1 max-w-xs mx-auto break-words whitespace-normal">
-                              <span className="font-semibold">(Nama:</span>
-                              <input
-                                type="text"
-                                value={namaKetuaPemantau}
-                                onChange={(e) => setNamaKetuaPemantau(e.target.value)}
-                                placeholder="Taip nama Oditer..."
-                                className="p-0.5 border-b border-dotted font-bold text-center text-xs bg-slate-50 print:bg-transparent print:border-none focus:outline-none w-full break-words"
-                              />
-                              <span className="font-semibold">)</span>
-                            </div>
+                    {/* ISU 2: SEKSYEN 2 - MAKLUM BALAS ATAU CADANGAN PENAMBAHBAIKAN */}
+                    <div className="border border-slate-900 p-3 rounded-none space-y-2">
+                      <label className="font-bold text-xs text-slate-900 block">
+                        2. Maklum balas atau cadangan penambahbaikan daripada JKSN/MSN: (sekiranya ada)
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={maklumbalasCadangan}
+                        onChange={(e) => setMaklumbalasCadangan(e.target.value)}
+                        placeholder="Taip maklum balas atau cadangan penambahbaikan daripada JKSN/MSN..."
+                        className="w-full p-2 border border-slate-300 rounded text-xs bg-slate-50 print:border-none print:bg-transparent print:p-0 whitespace-pre-wrap"
+                      />
+                    </div>
+
+                    {/* ISU 3: SEKSYEN 3 - CATATAN TAMBAHAN PEMANTAU / ODITER */}
+                    <div className="border border-slate-900 p-3 rounded-none space-y-2">
+                      <label className="font-bold text-xs text-slate-900 block">
+                        3. Catatan Tambahan Pemantau / Oditer:
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={catatanTambahanOditer}
+                        onChange={(e) => setCatatanTambahanOditer(e.target.value)}
+                        placeholder="Taip sebarang catatan tambahan oleh pemantau/oditer..."
+                        className="w-full p-2 border border-slate-300 rounded text-xs bg-slate-50 print:border-none print:bg-transparent print:p-0 whitespace-pre-wrap"
+                      />
+                    </div>
+
+                    {/* TANDATANGAN */}
+                    <div className="grid grid-cols-2 gap-12 pt-8 text-center">
+                      <div className="space-y-3">
+                        <p className="font-bold">Tandatangan Ketua Pemantau</p>
+                        <div className="pt-8">
+                          <p className="border-b border-slate-900 w-56 mx-auto mb-1"></p>
+                          <div className="flex items-center justify-center gap-1 max-w-xs mx-auto break-words whitespace-normal">
+                            <span className="font-semibold">(Nama:</span>
+                            <input
+                              type="text"
+                              value={namaKetuaPemantau}
+                              onChange={(e) => setNamaKetuaPemantau(e.target.value)}
+                              placeholder="Taip nama Oditer..."
+                              className="p-0.5 border-b border-dotted font-bold text-center text-xs bg-slate-50 print:bg-transparent print:border-none focus:outline-none w-full break-words"
+                            />
+                            <span className="font-semibold">)</span>
                           </div>
                         </div>
+                      </div>
 
-                        {/* ISU 4: No 3 Nama Ketua Jabatan Free Text + Auto Wrap */}
-                        <div className="space-y-3">
-                          <p className="font-bold">Tandatangan Ketua Jabatan / Wakil</p>
-                          <div className="pt-8">
-                            <p className="border-b border-slate-900 w-56 mx-auto mb-1"></p>
-                            <div className="flex items-center justify-center gap-1 max-w-xs mx-auto break-words whitespace-normal">
-                              <span className="font-semibold">(Nama:</span>
-                              <input
-                                type="text"
-                                value={namaWakilJabatan}
-                                onChange={(e) => setNamaWakilJabatan(e.target.value)}
-                                placeholder="Taip nama Ketua Jabatan/Wakil..."
-                                className="p-0.5 border-b border-dotted font-bold text-center text-xs bg-slate-50 print:bg-transparent print:border-none focus:outline-none w-full break-words"
-                              />
-                              <span className="font-semibold">)</span>
-                            </div>
-                            <p className="text-[10px] text-slate-500 mt-1">Cop Jabatan</p>
+                      <div className="space-y-3">
+                        <p className="font-bold">Tandatangan Ketua Jabatan / Wakil</p>
+                        <div className="pt-8">
+                          <p className="border-b border-slate-900 w-56 mx-auto mb-1"></p>
+                          <div className="flex items-center justify-center gap-1 max-w-xs mx-auto break-words whitespace-normal">
+                            <span className="font-semibold">(Nama:</span>
+                            <input
+                              type="text"
+                              value={namaWakilJabatan}
+                              onChange={(e) => setNamaWakilJabatan(e.target.value)}
+                              placeholder="Taip nama Ketua Jabatan/Wakil..."
+                              className="p-0.5 border-b border-dotted font-bold text-center text-xs bg-slate-50 print:bg-transparent print:border-none focus:outline-none w-full break-words"
+                            />
+                            <span className="font-semibold">)</span>
                           </div>
+                          <p className="text-[10px] text-slate-500 mt-1">Cop Jabatan</p>
                         </div>
                       </div>
                     </div>
