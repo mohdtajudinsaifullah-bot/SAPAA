@@ -1338,6 +1338,17 @@ export default function DashboardPage() {
                         placeholder="Taip sebarang catatan tambahan oleh pemantau/oditer..."
                         className="w-full p-2 border border-slate-300 rounded text-xs bg-slate-50 print:border-none print:bg-transparent print:p-0 whitespace-pre-wrap"
                       />
+                      {/* BUTANG SIMPAN KHAS UNTUK LAMPIRAN 4 */}
+                      <div className="flex justify-end pt-2 print:hidden">
+                        <button 
+                          type="button"
+                          onClick={handleSavePenilaian} 
+                          disabled={submitting} 
+                          className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-md flex items-center gap-1.5 cursor-pointer transition"
+                        >
+                          <Save className="w-4 h-4" /> {submitting ? 'Menyimpan...' : 'Simpan Maklum Balas & Catatan Lampiran 4'}
+                        </button>
+                      </div>
                     </div>
 
                     {/* TANDATANGAN */}
