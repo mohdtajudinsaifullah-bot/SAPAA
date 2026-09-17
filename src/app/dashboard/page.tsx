@@ -185,6 +185,8 @@ export default function DashboardPage() {
     setPenemuanBuktiInput(sub.penilaian?.penemuanBuktiJSON || {});
     setTickedInput(sub.penilaian?.tickedJSON || {});
     setUlasanOditer(sub.penilaian?.ulasan || '');
+
+    // Memuatkan semula data Seksyen 2 & Seksyen 3 Lampiran 4 secara automatik
     setMaklumbalasCadangan(sub.penilaian?.maklumbalasCadangan || '');
     setCatatanTambahanOditer(sub.penilaian?.catatanTambahanOditer || '');
 
