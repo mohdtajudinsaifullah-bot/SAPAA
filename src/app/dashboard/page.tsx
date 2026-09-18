@@ -37,7 +37,7 @@ export default function DashboardPage() {
   const [penilaianOditerForOditee, setPenilaianOditerForOditee] = useState<any>(null);
   const [submissions, setSubmissions] = useState<any[]>([]);
   
-  // State Filter Negeri untuk Admin/Oditer (Isu 1)
+  // State Filter Negeri untuk Admin/Oditer
   const [filterNegeri, setFilterNegeri] = useState<string>('SEMUA');
 
   // Admin State
@@ -61,7 +61,7 @@ export default function DashboardPage() {
   const [tickedInput, setTickedInput] = useState<Record<string, boolean>>({});
   const [ulasanOditer, setUlasanOditer] = useState('');
   
-  // State Free Text Lampiran 4 (Isu 2 & Isu 3)
+  // State Free Text Lampiran 4
   const [maklumbalasCadangan, setMaklumbalasCadangan] = useState<string>('');
   const [catatanTambahanOditer, setCatatanTambahanOditer] = useState<string>('');
 
@@ -157,7 +157,18 @@ export default function DashboardPage() {
       if (currentRole === 'Admin' || currentRole === 'Oditer') {
         const resSub = await fetch(`${gasUrl}?action=getAllSubmissions`);
         const dataSub = await resSub.json();
-        setSubmissions(Array.isArray(dataSub) ? dataSub : []);
+        const subArray = Array.isArray(dataSub) ? dataSub : [];
+        setSubmissions(subArray);
+
+        // Kemaskini selectedSub secara dinamik jika aktif
+        if (selectedSub) {
+          const updatedSub = subArray.find(s => s.idJawapan === selectedSub.idJawapan);
+          if (updatedSub) {
+            setSelectedSub(updatedSub);
+            setMaklumbalasCadangan(updatedSub.penilaian?.maklumbalasCadangan || '');
+            setCatatanTambahanOditer(updatedSub.penilaian?.catatanTambahanOditer || '');
+          }
+        }
       }
 
     } catch (e) {
@@ -186,7 +197,7 @@ export default function DashboardPage() {
     setTickedInput(sub.penilaian?.tickedJSON || {});
     setUlasanOditer(sub.penilaian?.ulasan || '');
 
-    // Memuatkan semula data Seksyen 2 & Seksyen 3 Lampiran 4 secara automatik
+    // Tetapkan nilai free text bagi penyerahan spesifik yang dipilih
     setMaklumbalasCadangan(sub.penilaian?.maklumbalasCadangan || '');
     setCatatanTambahanOditer(sub.penilaian?.catatanTambahanOditer || '');
 
@@ -374,7 +385,7 @@ export default function DashboardPage() {
       const resData = await res.json();
       if (resData.success) {
         setStatusMsg({ type: 'success', text: 'Penilaian, Catatan & Data Lampiran 4 berjaya disimpan secara kekal!' });
-        loadAllData();
+        await loadAllData();
       } else {
         setStatusMsg({ type: 'error', text: 'Gagal menyimpan penilaian.' });
       }
@@ -389,10 +400,10 @@ export default function DashboardPage() {
     window.print();
   };
 
-  // Senarai unik Negeri untuk Filter (Isu 1)
+  // Senarai unik Negeri untuk Filter
   const senaraiNegeriUnik = Array.from(new Set(submissions.map(s => (s.negeri || '').toString().toUpperCase().trim()).filter(Boolean)));
 
-  // Tapis penyerahan mengikut negeri jika ditapis (Isu 1)
+  // Tapis penyerahan mengikut negeri
   const filteredSubmissions = submissions.filter(s => {
     if (filterNegeri === 'SEMUA') return true;
     return (s.negeri || '').toString().toUpperCase().trim() === filterNegeri;
@@ -404,8 +415,9 @@ export default function DashboardPage() {
     s.borang === selectedSub.borang
   );
 
-  const aggregatedTickedItems = sameStateSubmissions
-    .filter(s => selectedMultiDaerah.includes(s.daerah))
+  const selectedSubmissions = sameStateSubmissions.filter(s => selectedMultiDaerah.includes(s.idJawapan));
+
+  const aggregatedTickedItems = selectedSubmissions
     .flatMap(s => {
       const ticked = s.penilaian?.tickedJSON || {};
       const noAA = s.penilaian?.noAAJSON || {};
@@ -921,12 +933,12 @@ export default function DashboardPage() {
               <p className="text-xs text-slate-500 mt-1">Pilih penyerahan daerah untuk membuat semakan, mencetak borang pemantauan daerah, atau menjana Laporan Pemantauan Gabungan (Lampiran 4).</p>
             </div>
 
-            {/* Jadual Senarai Submisyen Penyerahan & Filter Negeri (ISU 1) */}
+            {/* Jadual Senarai Submisyen Penyerahan & Filter Negeri */}
             <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm print:hidden">
               <div className="p-4 bg-slate-900 text-white font-semibold text-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                 <span>Senarai Jawapan Dihantar Mengikut Daerah</span>
                 
-                {/* ISU 1: Dropdown Filter Negeri */}
+                {/* Dropdown Filter Negeri */}
                 <div className="flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-lg text-xs">
                   <Filter className="w-3.5 h-3.5 text-blue-400" />
                   <span className="text-slate-300 font-medium">Tapis Negeri:</span>
@@ -1226,15 +1238,15 @@ export default function DashboardPage() {
                       </h4>
                       <div className="flex flex-wrap gap-3 pt-1">
                         {sameStateSubmissions.map((s, i) => (
-                          <label key={i} className="flex items-center gap-2 bg-white px-3 py-1.5 border rounded-lg font-bold text-xs cursor-pointer shadow-sm">
+                          <label key={s.idJawapan || i} className="flex items-center gap-2 bg-white px-3 py-1.5 border rounded-lg font-bold text-xs cursor-pointer shadow-sm">
                             <input
                               type="checkbox"
-                              checked={selectedMultiDaerah.includes(s.daerah)}
+                              checked={selectedMultiDaerah.includes(s.idJawapan)}
                               onChange={(e) => {
                                 if (e.target.checked) {
-                                  setSelectedMultiDaerah([...selectedMultiDaerah, s.daerah]);
+                                  setSelectedMultiDaerah([...selectedMultiDaerah, s.idJawapan]);
                                 } else {
-                                  setSelectedMultiDaerah(selectedMultiDaerah.filter(d => d !== s.daerah));
+                                  setSelectedMultiDaerah(selectedMultiDaerah.filter(id => id !== s.idJawapan));
                                 }
                               }}
                               className="w-4 h-4 text-emerald-600 rounded"
@@ -1256,7 +1268,7 @@ export default function DashboardPage() {
                       <div>
                         <span>JKSN/MSN : </span>
                         <span className="font-bold text-blue-900 px-1 uppercase">
-                          {selectedSub.negeri} ({selectedMultiDaerah.join(', ')})
+                          {selectedSub.negeri} ({Array.from(new Set(selectedSubmissions.map(s => s.daerah))).join(', ')})
                         </span>
                       </div>
                       <div className="flex items-center gap-1">
@@ -1272,7 +1284,7 @@ export default function DashboardPage() {
 
                     <div>
                       <p className="font-semibold leading-relaxed">
-                        1. Berdasarkan pemantauan yang dijalankan di JKSN/MSN Negeri <strong className="underline uppercase">{selectedSub.negeri}</strong> (Daerah: {selectedMultiDaerah.join(', ')}) terhadap Arahan Amalan. Terdapat beberapa Arahan Amalan yang tidak dipatuhi sebagaimana berikut:
+                        1. Berdasarkan pemantauan yang dijalankan di JKSN/MSN Negeri <strong className="underline uppercase">{selectedSub.negeri}</strong> (Daerah: {Array.from(new Set(selectedSubmissions.map(s => s.daerah))).join(', ')}) terhadap Arahan Amalan. Terdapat beberapa Arahan Amalan yang tidak dipatuhi sebagaimana berikut:
                       </p>
                     </div>
 
@@ -1314,7 +1326,7 @@ export default function DashboardPage() {
                       <p className="font-semibold mb-4">Oleh itu, Ketua Jabatan diminta mengambil perhatian terhadap pematuhan Arahan Amalan berkaitan.</p>
                     </div>
 
-                    {/* ISU 2: SEKSYEN 2 - MAKLUM BALAS ATAU CADANGAN PENAMBAHBAIKAN */}
+                    {/* SEKSYEN 2 - MAKLUM BALAS ATAU CADANGAN PENAMBAHBAIKAN */}
                     <div className="border border-slate-900 p-3 rounded-none space-y-2">
                       <label className="font-bold text-xs text-slate-900 block">
                         2. Maklum balas atau cadangan penambahbaikan daripada JKSN/MSN: (sekiranya ada)
@@ -1328,7 +1340,7 @@ export default function DashboardPage() {
                       />
                     </div>
 
-                    {/* ISU 3: SEKSYEN 3 - CATATAN TAMBAHAN PEMANTAU / ODITER */}
+                    {/* SEKSYEN 3 - CATATAN TAMBAHAN PEMANTAU / ODITER */}
                     <div className="border border-slate-900 p-3 rounded-none space-y-2">
                       <label className="font-bold text-xs text-slate-900 block">
                         3. Catatan Tambahan Pemantau / Oditer:
@@ -1340,17 +1352,18 @@ export default function DashboardPage() {
                         placeholder="Taip sebarang catatan tambahan oleh pemantau/oditer..."
                         className="w-full p-2 border border-slate-300 rounded text-xs bg-slate-50 print:border-none print:bg-transparent print:p-0 whitespace-pre-wrap"
                       />
-                      {/* BUTANG SIMPAN KHAS UNTUK LAMPIRAN 4 */}
-                      <div className="flex justify-end pt-2 print:hidden">
-                        <button 
-                          type="button"
-                          onClick={handleSavePenilaian} 
-                          disabled={submitting} 
-                          className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-md flex items-center gap-1.5 cursor-pointer transition"
-                        >
-                          <Save className="w-4 h-4" /> {submitting ? 'Menyimpan...' : 'Simpan Maklum Balas & Catatan Lampiran 4'}
-                        </button>
-                      </div>
+                    </div>
+
+                    {/* BUTANG SIMPAN KHAS UNTUK LAMPIRAN 4 */}
+                    <div className="flex justify-end pt-2 print:hidden">
+                      <button 
+                        type="button"
+                        onClick={handleSavePenilaian} 
+                        disabled={submitting} 
+                        className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-md flex items-center gap-1.5 cursor-pointer transition"
+                      >
+                        <Save className="w-4 h-4" /> {submitting ? 'Menyimpan...' : 'Simpan Maklum Balas & Catatan Lampiran 4'}
+                      </button>
                     </div>
 
                     {/* TANDATANGAN */}
