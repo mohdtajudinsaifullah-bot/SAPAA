@@ -193,7 +193,7 @@ export default function DashboardPage() {
     if (sub.penilaian?.tarikh) {
       setTarikhAuditOpen(new Date(sub.penilaian.tarikh).toISOString().split('T')[0]);
     }
-    setSelectedMultiDaerah([sub.daerah]);
+    setSelectedMultiDaerah([sub.idJawapan]);
     setViewTab('semakan');
 
     try {
