@@ -285,7 +285,7 @@ export default function DashboardPage() {
     setSubmitting(true);
     setStatusMsg(null);
 
-    const emailToSend = currentUser?.email || profil.email || '';
+    const emailToSend = currentUser?.email || '';
 
     if (!emailToSend) {
       setStatusMsg({ type: 'error', text: 'Sesi pengguna tamat. Sila log keluar dan log masuk semula.' });
