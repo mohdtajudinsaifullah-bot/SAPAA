@@ -285,13 +285,21 @@ export default function DashboardPage() {
     setSubmitting(true);
     setStatusMsg(null);
 
+    const emailToSend = currentUser?.email || profil.email || '';
+
+    if (!emailToSend) {
+      setStatusMsg({ type: 'error', text: 'Sesi pengguna tamat. Sila log keluar dan log masuk semula.' });
+      setSubmitting(false);
+      return;
+    }
+
     try {
-      await fetch(gasUrl!, {
+      const res = await fetch(gasUrl!, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({
           action: 'submitJawapan',
-          email: currentUser?.email,
+          email: emailToSend,
           nama: profil.nama,
           hierarki: profil.hierarki,
           negeri: profil.negeri,
@@ -301,10 +309,17 @@ export default function DashboardPage() {
         })
       });
 
-      setStatusMsg({ type: 'success', text: 'Jawapan/Pembetulan berjaya disimpan & dikemaskini!' });
-      loadAllData();
+      const resData = await res.json();
+
+      if (resData && resData.success) {
+        setStatusMsg({ type: 'success', text: 'Jawapan/Pembetulan berjaya disimpan & dikemaskini ke pangkalan data!' });
+        await loadAllData();
+      } else {
+        setStatusMsg({ type: 'error', text: resData?.message || 'Gagal menyimpan jawapan ke Google Sheets.' });
+      }
     } catch (e) {
-      setStatusMsg({ type: 'error', text: 'Ralat menyimpan jawapan.' });
+      console.error(e);
+      setStatusMsg({ type: 'error', text: 'Ralat sambungan rangkaian ke Google Sheets.' });
     } finally {
       setSubmitting(false);
     }
